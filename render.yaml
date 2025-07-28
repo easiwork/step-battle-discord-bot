@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: step-battle-discord-bot
+    env: bun
+    buildCommand: bun install
+    startCommand: bun run start
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: AUTHORIZED_USERS
+        sync: false
+      - key: WEBHOOK_SECRET
+        sync: false
+      - key: WEBHOOK_PORT
+        value: 3001
+      - key: DATABASE_PATH
+        value: ./step-battle.db
+      - key: ALICE_DISCORD_ID
+        sync: false
+      - key: BOB_DISCORD_ID
+        sync: false

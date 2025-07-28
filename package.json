@@ -1,0 +1,31 @@
+{
+  "name": "step-battle-discord-bot",
+  "version": "1.0.0",
+  "description": "A Discord bot for tracking step battles between friends",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "bun-types": "latest"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "steps",
+    "fitness",
+    "battle"
+  ],
+  "author": "Step Battle Team",
+  "license": "MIT"
+}
