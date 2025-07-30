@@ -141,7 +141,8 @@ POST http://your-server:8080/webhook
 ```json
 {
   "user": "alice",
-  "steps": 113400
+  "steps": 113400,
+  "guildId": "123456789012345678"
 }
 ```
 
@@ -161,7 +162,7 @@ Use the Authorization header:
    - Method: POST
    - Headers: `Authorization: Bearer your-secret-key`
    - Request Body: JSON
-   - Content: `{"user": "alice", "steps": [sum of steps]}`
+   - Content: `{"user": "alice", "steps": [sum of steps], "guildId": "your-discord-server-id"}`
 
 ## 🗄️ Database Schema
 
@@ -170,6 +171,7 @@ Use the Authorization header:
 ```sql
 CREATE TABLE users (
   id TEXT PRIMARY KEY,
+  guild_id TEXT NOT NULL,
   name TEXT NOT NULL,
   steps INTEGER DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -182,12 +184,13 @@ CREATE TABLE users (
 ```sql
 CREATE TABLE step_entries (
   id TEXT PRIMARY KEY,
+  guild_id TEXT NOT NULL,
   user_id TEXT NOT NULL,
   date TEXT NOT NULL,
   steps INTEGER,
   entry_type TEXT NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users (id)
+  FOREIGN KEY (user_id, guild_id) REFERENCES users (id, guild_id)
 );
 ```
 
@@ -196,9 +199,10 @@ CREATE TABLE step_entries (
 ```sql
 CREATE TABLE discord_links (
   discord_id TEXT PRIMARY KEY,
-  apple_device_name TEXT NOT NULL UNIQUE,
+  guild_id TEXT NOT NULL,
+  apple_device_name TEXT NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (apple_device_name) REFERENCES users (id)
+  FOREIGN KEY (apple_device_name, guild_id) REFERENCES users (id, guild_id)
 );
 ```
 

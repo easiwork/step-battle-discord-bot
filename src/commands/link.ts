@@ -23,10 +23,19 @@ export async function execute(
 ): Promise<void> {
   const userId = interaction.user.id;
   const appleDeviceName = interaction.options.getString("name", true);
+  const guildId = interaction.guildId;
+
+  if (!guildId) {
+    await interaction.reply({
+      content: "❌ This command can only be used in a Discord server.",
+      ephemeral: true,
+    });
+    return;
+  }
 
   try {
     // Check if the Apple device name exists in the database
-    const existingUser = await db.getUser(appleDeviceName);
+    const existingUser = await db.getUser(appleDeviceName, guildId);
     if (!existingUser) {
       await interaction.reply({
         content: `❌ Apple device name "${appleDeviceName}" not found. Please log steps first by using the Apple Shortcut.`,
@@ -36,7 +45,7 @@ export async function execute(
     }
 
     // Check if this Discord user is already linked to any Apple device name
-    const existingLink = await db.getDiscordLink(userId);
+    const existingLink = await db.getDiscordLink(userId, guildId);
     if (existingLink) {
       await interaction.reply({
         content: `❌ You are already linked to Apple device name "${existingLink}". You cannot link to multiple names.`,
@@ -46,7 +55,7 @@ export async function execute(
     }
 
     // Check if this Apple device name is already linked to another Discord user
-    const existingAppleDeviceLink = await db.getAppleHealthLink(appleDeviceName);
+    const existingAppleDeviceLink = await db.getAppleHealthLink(appleDeviceName, guildId);
     if (existingAppleDeviceLink) {
       await interaction.reply({
         content: `❌ Apple device name "${appleDeviceName}" is already linked to another Discord user.`,
@@ -56,7 +65,7 @@ export async function execute(
     }
 
     // Create the link
-    await db.createDiscordLink(userId, appleDeviceName);
+    await db.createDiscordLink(userId, appleDeviceName, guildId);
 
     const embed = new EmbedBuilder()
       .setColor("#00ff00")
@@ -64,7 +73,18 @@ export async function execute(
       .setDescription(
         `Your Discord account has been linked to Apple device name "${appleDeviceName}".`
       )
-      .setTimestamp();
+      .addFields({
+        name: "📊 Current Steps",
+        value: `${existingUser.steps.toLocaleString()} steps`,
+        inline: true,
+      })
+      .addFields({
+        name: "🔗 Link Status",
+        value: "✅ Active",
+        inline: true,
+      })
+      .setTimestamp()
+      .setFooter({ text: "Step Battle Bot" });
 
     await interaction.reply({ embeds: [embed] });
   } catch (error) {
@@ -82,10 +102,16 @@ export async function autocomplete(
   db: StepBattleDatabase
 ): Promise<void> {
   const focusedValue = interaction.options.getFocused();
+  const guildId = interaction.guildId;
+  
+  if (!guildId) {
+    await interaction.respond([]);
+    return;
+  }
   
   try {
-    // Get all users from the database
-    const users = await db.getAllUsers();
+    // Get all users from the database for this guild
+    const users = await db.getAllUsers(guildId);
     
     console.log(`Autocomplete: focusedValue="${focusedValue}", total users=${users.length}`);
     
