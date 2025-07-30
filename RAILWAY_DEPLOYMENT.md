@@ -37,7 +37,7 @@ DISCORD_CLIENT_ID=your_actual_discord_client_id
 
 # Webhook Configuration
 WEBHOOK_SECRET=your_secure_webhook_secret_key
-WEBHOOK_PORT=8080
+PORT=8080
 
 # Database Configuration (Railway Volume)
 DATABASE_PATH=/data/step-battle.db
@@ -96,6 +96,7 @@ https://your-app-name.railway.app/health
 
 **3. Webhook not working**
 - Verify `WEBHOOK_SECRET` is set correctly
+- Check `PORT` environment variable is set to 8080
 - Check the webhook URL is updated in Apple Shortcuts
 - Monitor webhook logs in Railway dashboard
 

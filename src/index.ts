@@ -8,7 +8,7 @@ const config = {
   clientId: process.env.DISCORD_CLIENT_ID || "",
   webhookSecret: process.env.WEBHOOK_SECRET || "your-secret-key-here",
   databasePath: process.env.DATABASE_PATH || "./step-battle.db",
-  webhookPort: parseInt(process.env.WEBHOOK_PORT || "3001"),
+  webhookPort: parseInt(process.env.PORT || process.env.WEBHOOK_PORT || "8080"),
 };
 
 async function main() {
