@@ -107,14 +107,14 @@ export async function autocomplete(
     
     // Create choices for autocomplete
     const choices = filteredUsers.map(user => ({
-      name: `${user.name} (${user.steps.toLocaleString()} steps)`,
+      name: user.name,
       value: user.name
     }));
     
     // If no users match, show all available users
     if (choices.length === 0 && users.length > 0) {
       const allChoices = users.slice(0, 25).map(user => ({
-        name: `${user.name} (${user.steps.toLocaleString()} steps)`,
+        name: user.name,
         value: user.name
       }));
       await interaction.respond(allChoices);
