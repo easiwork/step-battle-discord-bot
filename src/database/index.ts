@@ -13,7 +13,6 @@ export class StepBattleDatabase {
     this.db.run(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
-        guild_id TEXT NOT NULL,
         name TEXT NOT NULL,
         steps INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -25,13 +24,12 @@ export class StepBattleDatabase {
     this.db.run(`
       CREATE TABLE IF NOT EXISTS step_entries (
         id TEXT PRIMARY KEY,
-        guild_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         date TEXT NOT NULL,
         steps INTEGER,
         entry_type TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id, guild_id) REFERENCES users (id, guild_id)
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     `);
 
@@ -39,34 +37,32 @@ export class StepBattleDatabase {
     this.db.run(`
       CREATE TABLE IF NOT EXISTS discord_links (
         discord_id TEXT PRIMARY KEY,
-        guild_id TEXT NOT NULL,
-        apple_device_name TEXT NOT NULL,
+        apple_device_name TEXT NOT NULL UNIQUE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (apple_device_name, guild_id) REFERENCES users (id, guild_id)
+        FOREIGN KEY (apple_device_name) REFERENCES users (id)
       )
     `);
 
     this.db.run("PRAGMA foreign_keys = ON");
   }
 
-  async createUser(id: string, name: string, guildId: string): Promise<void> {
-    this.db.run("INSERT OR IGNORE INTO users (id, guild_id, name) VALUES (?, ?, ?)", [
+  async createUser(id: string, name: string): Promise<void> {
+    this.db.run("INSERT OR IGNORE INTO users (id, name) VALUES (?, ?)", [
       id,
-      guildId,
       name,
     ]);
   }
 
-  async getUser(id: string, guildId: string): Promise<User | null> {
+  async getUser(id: string): Promise<User | null> {
     const userRow = this.db
-      .query("SELECT * FROM users WHERE id = ? AND guild_id = ?")
-      .get(id, guildId) as any;
+      .query("SELECT * FROM users WHERE id = ?")
+      .get(id) as any;
 
     if (!userRow) {
       return null;
     }
 
-    const history = await this.getUserHistory(id, guildId);
+    const history = await this.getUserHistory(id);
     return {
       id: userRow.id,
       name: userRow.name,
@@ -75,14 +71,14 @@ export class StepBattleDatabase {
     };
   }
 
-  async getAllUsers(guildId: string): Promise<User[]> {
+  async getAllUsers(): Promise<User[]> {
     const rows = this.db
-      .query("SELECT * FROM users WHERE guild_id = ? ORDER BY steps DESC")
-      .all(guildId) as any[];
+      .query("SELECT * FROM users ORDER BY steps DESC")
+      .all() as any[];
 
     const users: User[] = [];
     for (const row of rows) {
-      const history = await this.getUserHistory(row.id, guildId);
+      const history = await this.getUserHistory(row.id);
       users.push({
         id: row.id,
         name: row.name,
@@ -96,8 +92,7 @@ export class StepBattleDatabase {
   async addStepEntry(
     userId: string,
     entry: Omit<StepEntry, "entryType">,
-    entryType: "webhook",
-    guildId: string
+    entryType: "webhook"
   ): Promise<void> {
     const entryId = `${userId}_${entry.date}_${Date.now()}`;
     let steps = 0;
@@ -108,11 +103,10 @@ export class StepBattleDatabase {
 
     this.db.run(
       `INSERT INTO step_entries 
-       (id, guild_id, user_id, date, steps, entry_type) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       (id, user_id, date, steps, entry_type) 
+       VALUES (?, ?, ?, ?, ?)`,
       [
         entryId,
-        guildId,
         userId,
         entry.date,
         steps,
@@ -122,15 +116,15 @@ export class StepBattleDatabase {
 
     // Update user's total steps
     this.db.run(
-      "UPDATE users SET steps = steps + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND guild_id = ?",
-      [steps, userId, guildId]
+      "UPDATE users SET steps = steps + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [steps, userId]
     );
   }
 
-  private async getUserHistory(userId: string, guildId: string): Promise<StepEntry[]> {
+  private async getUserHistory(userId: string): Promise<StepEntry[]> {
     const rows = this.db
-      .query("SELECT * FROM step_entries WHERE user_id = ? AND guild_id = ? ORDER BY date DESC")
-      .all(userId, guildId) as any[];
+      .query("SELECT * FROM step_entries WHERE user_id = ? ORDER BY date DESC")
+      .all(userId) as any[];
 
     return rows.map((row) => ({
       date: row.date,
@@ -139,42 +133,42 @@ export class StepBattleDatabase {
     }));
   }
 
-  async createDiscordLink(discordId: string, appleDeviceName: string, guildId: string): Promise<void> {
+  async createDiscordLink(discordId: string, appleDeviceName: string): Promise<void> {
     this.db.run(
-      "INSERT INTO discord_links (discord_id, guild_id, apple_device_name) VALUES (?, ?, ?)",
-      [discordId, guildId, appleDeviceName]
+      "INSERT INTO discord_links (discord_id, apple_device_name) VALUES (?, ?)",
+      [discordId, appleDeviceName]
     );
   }
 
-  async getDiscordLink(discordId: string, guildId: string): Promise<string | null> {
+  async getDiscordLink(discordId: string): Promise<string | null> {
     const row = this.db
-      .query("SELECT apple_device_name FROM discord_links WHERE discord_id = ? AND guild_id = ?")
-      .get(discordId, guildId) as any;
+      .query("SELECT apple_device_name FROM discord_links WHERE discord_id = ?")
+      .get(discordId) as any;
 
     return row ? row.apple_device_name : null;
   }
 
-  async getAppleHealthLink(appleDeviceName: string, guildId: string): Promise<string | null> {
+  async getAppleHealthLink(appleDeviceName: string): Promise<string | null> {
     const row = this.db
-      .query("SELECT discord_id FROM discord_links WHERE apple_device_name = ? AND guild_id = ?")
-      .get(appleDeviceName, guildId) as any;
+      .query("SELECT discord_id FROM discord_links WHERE apple_device_name = ?")
+      .get(appleDeviceName) as any;
 
     return row ? row.discord_id : null;
   }
 
-  async getDiscordUsernameForAppleHealthName(appleDeviceName: string, guildId: string): Promise<string | null> {
+  async getDiscordUsernameForAppleHealthName(appleDeviceName: string): Promise<string | null> {
     const row = this.db
-      .query("SELECT discord_id FROM discord_links WHERE apple_device_name = ? AND guild_id = ?")
-      .get(appleDeviceName, guildId) as any;
+      .query("SELECT discord_id FROM discord_links WHERE apple_device_name = ?")
+      .get(appleDeviceName) as any;
 
     return row ? row.discord_id : null;
   }
 
-  async getGapChangePercentage(userId: string, guildId: string): Promise<number | null> {
+  async getGapChangePercentage(userId: string): Promise<number | null> {
     // Get the last two days of step entries for this user
     const userEntries = this.db
-      .query("SELECT date, steps FROM step_entries WHERE user_id = ? AND guild_id = ? ORDER BY date DESC LIMIT 2")
-      .all(userId, guildId) as any[];
+      .query("SELECT date, steps FROM step_entries WHERE user_id = ? ORDER BY date DESC LIMIT 2")
+      .all(userId) as any[];
 
     if (userEntries.length < 2) {
       return null; // Not enough data
@@ -185,12 +179,12 @@ export class StepBattleDatabase {
       .query(`
         SELECT date, SUM(steps) as total_steps 
         FROM step_entries 
-        WHERE date IN (?, ?) AND guild_id = ?
+        WHERE date IN (?, ?) 
         GROUP BY date 
         ORDER BY date DESC 
         LIMIT 2
       `)
-      .all(userEntries[0].date, userEntries[1].date, guildId) as any[];
+      .all(userEntries[0].date, userEntries[1].date) as any[];
 
     if (leaderEntries.length < 2) {
       return null; // Not enough leader data

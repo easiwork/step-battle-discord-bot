@@ -14,16 +14,7 @@ export async function execute(
   db: StepBattleDatabase
 ): Promise<void> {
   try {
-    const guildId = interaction.guildId;
-    if (!guildId) {
-      await interaction.reply({
-        content: "❌ This command can only be used in a Discord server.",
-        ephemeral: true,
-      });
-      return;
-    }
-
-    const users = await db.getAllUsers(guildId);
+    const users = await db.getAllUsers();
 
     if (users.length === 0) {
       await interaction.reply({
@@ -49,7 +40,7 @@ export async function execute(
         else if (position === 2) emoji = "🥈";
 
         // Try to get Discord username for this Apple device name
-        const discordId = await db.getDiscordUsernameForAppleHealthName(user.name, guildId);
+        const discordId = await db.getDiscordUsernameForAppleHealthName(user.name);
         let displayName = user.name; // Default to Apple device name
 
         if (discordId) {
@@ -70,7 +61,7 @@ export async function execute(
           entryText += " 🏆 **LEADER**";
         } else {
           // Get the percentage change in gap
-          const gapChange = await db.getGapChangePercentage(user.id, guildId);
+          const gapChange = await db.getGapChangePercentage(user.id);
           
           if (gapChange !== null) {
             if (gapChange > 0) {
@@ -107,7 +98,7 @@ export async function execute(
     );
 
     // Get display name for the leader
-    const leaderDiscordId = await db.getDiscordUsernameForAppleHealthName(sortedUsers[0].name, guildId);
+    const leaderDiscordId = await db.getDiscordUsernameForAppleHealthName(sortedUsers[0].name);
     let leaderDisplayName = sortedUsers[0].name;
     
     if (leaderDiscordId) {

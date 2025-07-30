@@ -14,7 +14,6 @@ export interface StepEntry {
 export interface WebhookPayload {
   user: string;
   steps: number;
-  guildId: string;
 }
 
 export interface LeaderboardEntry {

@@ -17,7 +17,6 @@ export class StepBattleBot {
   private db: StepBattleDatabase;
   private commands: Collection<string, any>;
   private channelId: string | null = null;
-  private guildId: string | null = null;
   private scheduler: NodeJS.Timeout | null = null;
 
   constructor(
@@ -83,7 +82,6 @@ export class StepBattleBot {
         // Store channel ID for scheduled posts
         if (!this.channelId) {
           this.channelId = interaction.channelId;
-          this.guildId = interaction.guildId;
         }
       } catch (error) {
         console.error(`Error executing ${interaction.commandName}:`, error);
@@ -122,8 +120,8 @@ export class StepBattleBot {
   }
 
   private async postLeaderboard(): Promise<void> {
-    if (!this.channelId || !this.guildId) {
-      console.log("⚠️ No channel ID or guild ID stored, skipping leaderboard post");
+    if (!this.channelId) {
+      console.log("⚠️ No channel ID stored, skipping leaderboard post");
       return;
     }
 
@@ -134,14 +132,15 @@ export class StepBattleBot {
         return;
       }
 
-      const users = await this.db.getAllUsers(this.guildId);
+      const users = await this.db.getAllUsers();
 
       if (users.length === 0) {
         const embed = new EmbedBuilder()
           .setColor("#ffd700")
-          .setTitle("🏃‍♂️ Biggest Steppers")
+          .setTitle("🏃‍♂️ Daily Step Battle Results")
           .setDescription("📊 No participants have logged steps today.")
-          .setTimestamp();
+          .setTimestamp()
+          .setFooter({ text: "Step Battle Bot - Daily Results" });
 
         await channel.send({ embeds: [embed] });
         return;
@@ -163,7 +162,7 @@ export class StepBattleBot {
           else if (position === 2) emoji = "🥈";
 
           // Try to get Discord username for this Apple device name
-          const discordId = await this.db.getDiscordUsernameForAppleHealthName(user.name, this.guildId!);
+          const discordId = await this.db.getDiscordUsernameForAppleHealthName(user.name);
           let displayName = user.name; // Default to Apple device name
 
           if (discordId) {
@@ -184,7 +183,7 @@ export class StepBattleBot {
             entryText += " 🏆 **LEADER**";
           } else {
             // Get the percentage change in gap
-            const gapChange = await this.db.getGapChangePercentage(user.id, this.guildId!);
+            const gapChange = await this.db.getGapChangePercentage(user.id);
             
             if (gapChange !== null) {
               if (gapChange > 0) {
@@ -221,7 +220,7 @@ export class StepBattleBot {
       );
 
       // Get display name for the leader
-      const leaderDiscordId = await this.db.getDiscordUsernameForAppleHealthName(sortedUsers[0].name, this.guildId!);
+      const leaderDiscordId = await this.db.getDiscordUsernameForAppleHealthName(sortedUsers[0].name);
       let leaderDisplayName = sortedUsers[0].name;
       
       if (leaderDiscordId) {

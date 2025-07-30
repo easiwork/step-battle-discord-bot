@@ -75,7 +75,6 @@ export class WebhookServer {
       typeof payload === "object" &&
       typeof payload.user === "string" &&
       typeof payload.steps === "number" &&
-      typeof payload.guildId === "string" &&
       payload.steps >= 0 &&
       payload.steps <= 1000000 // Reasonable upper limit
     );
@@ -84,14 +83,9 @@ export class WebhookServer {
   private async processStepEntry(payload: WebhookPayload): Promise<void> {
     // Use Apple device name as the user ID
     const appleDeviceName = payload.user;
-    const guildId = payload.guildId;
-
-    if (!guildId) {
-      throw new Error("guildId is required in webhook payload");
-    }
 
     // Ensure user exists in database
-    await this.db.createUser(appleDeviceName, appleDeviceName, guildId);
+    await this.db.createUser(appleDeviceName, appleDeviceName);
 
     // Add step entry
     await this.db.addStepEntry(
@@ -100,14 +94,13 @@ export class WebhookServer {
         date: new Date().toISOString().split("T")[0],
         steps: payload.steps,
       },
-      "webhook",
-      guildId
+      "webhook"
     );
 
     console.log(
       `✅ Webhook: Added ${payload.steps.toLocaleString()} steps for ${
         appleDeviceName
-      } in guild ${guildId}`
+      }`
     );
   }
 
