@@ -64,18 +64,7 @@ export async function execute(
       .setDescription(
         `Your Discord account has been linked to Apple device name "${appleDeviceName}".`
       )
-      .addFields({
-        name: "📊 Current Steps",
-        value: `${existingUser.steps.toLocaleString()} steps`,
-        inline: true,
-      })
-      .addFields({
-        name: "🔗 Link Status",
-        value: "✅ Active",
-        inline: true,
-      })
-      .setTimestamp()
-      .setFooter({ text: "Step Battle Bot" });
+      .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
   } catch (error) {
