@@ -1,13 +1,14 @@
 # 🏃‍♂️ Step Battle Discord Bot
 
-A Discord bot for tracking step battles between friends! Every 2 weeks, participants log their steps and compete to see who can accumulate more steps over the course of a year.
+A Discord bot for tracking daily step competitions between friends! Participants compete to see who can accumulate more steps, with a daily leaderboard that shows progress without revealing exact totals.
 
 ## ✨ Features
 
-- **Manual Step Entry**: `/log` command to submit weekly averages
-- **Leaderboard**: `/leaderboard` command that shows who's ahead without revealing totals
-- **Apple Health Integration**: Webhook endpoint for automatic step submission
-- **Secure**: User authorization and webhook authentication
+- **Daily Leaderboard**: `/leaderboard` command showing progress with percentage-based gap tracking
+- **Account Linking**: `/link` command to connect Discord accounts to Apple device names
+- **Apple Device Integration**: Webhook endpoint for automatic step submission
+- **Motivational Feedback**: Dynamic encouragement based on performance trends
+- **Secure**: Webhook authentication with Bearer token
 - **SQLite Database**: Persistent storage with step history
 
 ## 🚀 Quick Start
@@ -47,10 +48,9 @@ A Discord bot for tracking step battles between friends! Every 2 weeks, particip
    - Add the bot to your server with appropriate permissions
    - Get your Client ID
 
-5. **Configure authorized users**
+5. **Configure webhook secret**
 
-   - Add Discord user IDs to `AUTHORIZED_USERS` in `.env`
-   - Map Apple Health user names to Discord IDs
+   - Set `WEBHOOK_SECRET` in `.env` for secure webhook authentication
 
 6. **Run the bot**
    ```bash
@@ -65,12 +65,9 @@ A Discord bot for tracking step battles between friends! Every 2 weeks, particip
 | ------------------- | ---------------------------------------- | -------- |
 | `DISCORD_TOKEN`     | Your Discord bot token                   | ✅       |
 | `DISCORD_CLIENT_ID` | Your Discord application client ID       | ✅       |
-| `AUTHORIZED_USERS`  | Comma-separated Discord user IDs         | ✅       |
 | `WEBHOOK_SECRET`    | Secret key for webhook authentication    | ✅       |
-| `WEBHOOK_PORT`      | Port for webhook server (default: 3001)  | ❌       |
+| `WEBHOOK_PORT`      | Port for webhook server (default: 8080)  | ❌       |
 | `DATABASE_PATH`     | SQLite database file path                | ❌       |
-| `ALICE_DISCORD_ID`  | Discord ID for Apple Health user "alice" | ❌       |
-| `BOB_DISCORD_ID`    | Discord ID for Apple Health user "bob"   | ❌       |
 
 ### Discord Bot Permissions
 
@@ -85,13 +82,14 @@ Your bot needs the following permissions:
 
 ### `/leaderboard`
 
-View the current step battle status without revealing step totals.
+View the current step competition status with percentage-based progress tracking.
 
 **Example Output:**
 
 ```
-🥇 Alice is currently ahead!
-🥈 Bob, keep pushing!
+🥇 Alice 🏆 LEADER
+🥈 Bob 🔥 +15% closer - You're gaining ground!
+🥉 Charlie 📉 -8% gap - Don't fall behind!
 ```
 
 ### `/link <name>`
@@ -111,6 +109,23 @@ Link your Discord account to an existing Apple device name. This allows you to u
 - Apple device names can only be linked to one Discord account
 - The Apple device name must already have steps logged (via webhook)
 
+## 🎯 Leaderboard Features
+
+### Percentage-Based Progress Tracking
+
+The leaderboard shows how much each participant is gaining or losing ground relative to the leader:
+
+- **🚀 +10%+ closer**: "Amazing progress!" - Significant gains
+- **🔥 +5-9% closer**: "You're gaining ground!" - Good progress  
+- **💪 +1-4% closer**: "Keep it up!" - Steady improvement
+- **📉 -10%+ gap**: "Time to step it up!" - Need to catch up
+- **⚠️ -5-9% gap**: "Don't fall behind!" - Gentle warning
+- **🚶‍♂️ -1-4% gap**: "Stay focused!" - Minor setback
+- **➡️ Same gap**: "Maintain the pace!" - Holding steady
+- **📊 New participant**: "Welcome to the challenge!" - First time
+
+This system encourages continued participation by showing progress trends without revealing exact step counts.
+
 ## 🔗 Apple Device Integration
 
 ### Webhook Endpoint
@@ -118,7 +133,7 @@ Link your Discord account to an existing Apple device name. This allows you to u
 The bot provides a webhook endpoint for automatic step submission:
 
 ```
-POST http://your-server:3001/webhook
+POST http://your-server:8080/webhook
 ```
 
 ### Request Format
@@ -142,7 +157,7 @@ Use the Authorization header:
 2. Add "Get Health Sample" action for steps (last 14 days)
 3. Add "Get Numbers from Input" to sum the steps
 4. Add "Get Contents of URL" action:
-   - URL: `http://your-server:3001/webhook`
+   - URL: `http://your-server:8080/webhook`
    - Method: POST
    - Headers: `Authorization: Bearer your-secret-key`
    - Request Body: JSON
@@ -195,7 +210,6 @@ CREATE TABLE discord_links (
 src/
 ├── bot.ts              # Main Discord bot
 ├── commands/           # Slash commands
-│   ├── log.ts         # Step logging command
 │   ├── leaderboard.ts # Leaderboard display
 │   └── link.ts        # Account linking
 ├── database/          # Database operations
@@ -208,4 +222,5 @@ src/
 
 ### Available Scripts
 
-- `bun run dev`
+- `bun run src/index.ts` - Start the bot
+- `bun test` - Run tests
