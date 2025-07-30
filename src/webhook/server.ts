@@ -6,17 +6,14 @@ export class WebhookServer {
   private server: Server;
   private db: StepBattleDatabase;
   private secret: string;
-  private userMapping: Record<string, string>; // Maps Apple Health user names to Discord IDs
 
   constructor(
     port: number,
     db: StepBattleDatabase,
-    secret: string,
-    userMapping: Record<string, string>
+    secret: string
   ) {
     this.db = db;
     this.secret = secret;
-    this.userMapping = userMapping;
 
     this.server = Bun.serve({
       port,
@@ -41,9 +38,8 @@ export class WebhookServer {
 
     // Validate authentication
     const authHeader = request.headers.get("authorization");
-    const queryKey = url.searchParams.get("key");
 
-    if (!this.validateAuth(authHeader, queryKey)) {
+    if (!this.validateAuth(authHeader)) {
       return new Response("Unauthorized", { status: 401 });
     }
 
@@ -66,23 +62,11 @@ export class WebhookServer {
     }
   }
 
-  private validateAuth(
-    authHeader: string | null,
-    queryKey: string | null
-  ): boolean {
-    // Check Authorization header
+  private validateAuth(authHeader: string | null): boolean {
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.substring(7);
-      if (token === this.secret) {
-        return true;
-      }
+      return token === this.secret;
     }
-
-    // Check query parameter
-    if (queryKey && queryKey === this.secret) {
-      return true;
-    }
-
     return false;
   }
 
@@ -97,18 +81,15 @@ export class WebhookServer {
   }
 
   private async processStepEntry(payload: WebhookPayload): Promise<void> {
-    const discordUserId = this.userMapping[payload.user];
-
-    if (!discordUserId) {
-      throw new Error(`Unknown user: ${payload.user}`);
-    }
+    // Use Apple device name as the user ID
+    const appleDeviceName = payload.user;
 
     // Ensure user exists in database
-    await this.db.createUser(discordUserId, payload.user);
+    await this.db.createUser(appleDeviceName, appleDeviceName);
 
     // Add step entry
     await this.db.addStepEntry(
-      discordUserId,
+      appleDeviceName,
       {
         date: new Date().toISOString().split("T")[0],
         steps: payload.steps,
@@ -118,7 +99,7 @@ export class WebhookServer {
 
     console.log(
       `✅ Webhook: Added ${payload.steps.toLocaleString()} steps for ${
-        payload.user
+        appleDeviceName
       }`
     );
   }

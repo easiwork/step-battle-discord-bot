@@ -83,17 +83,18 @@ Your bot needs the following permissions:
 
 ## 🎮 Commands
 
-### `/log <week1> <week2>`
+### `/log <name> <week1> <week2>`
 
 Log your steps for the past two weeks.
 
+- `name`: Your Apple device name (used in leaderboard)
 - `week1`: Average steps for the past week
 - `week2`: Average steps for the week before that
 
 **Example:**
 
 ```
-/log 8200 7900
+/log alice 8200 7900
 ```
 
 The bot calculates: `((8200 + 7900) / 2) × 14 = 113,400 steps`
@@ -109,14 +110,31 @@ View the current step battle status without revealing step totals.
 🥈 Bob, keep pushing!
 ```
 
-## 🔗 Apple Health Integration
+### `/link <name>`
+
+Link your Discord account to an existing Apple device name. This allows you to use the `/log` command without specifying your name each time.
+
+- `name`: The Apple device name to link to (must already exist in the database)
+
+**Example:**
+
+```
+/link alice
+```
+
+**Note:** 
+- You can only link to one Apple device name
+- Apple device names can only be linked to one Discord account
+- The Apple device name must already have steps logged (via `/log` or webhook)
+
+## 🔗 Apple Device Integration
 
 ### Webhook Endpoint
 
 The bot provides a webhook endpoint for automatic step submission:
 
 ```
-POST http://your-server:3001/webhook?key=your-secret-key
+POST http://your-server:3001/webhook
 ```
 
 ### Request Format
@@ -130,9 +148,8 @@ POST http://your-server:3001/webhook?key=your-secret-key
 
 ### Authentication
 
-Use either:
+Use the Authorization header:
 
-- Query parameter: `?key=your-secret-key`
 - Authorization header: `Authorization: Bearer your-secret-key`
 
 ### Apple Shortcuts Setup
@@ -141,8 +158,9 @@ Use either:
 2. Add "Get Health Sample" action for steps (last 14 days)
 3. Add "Get Numbers from Input" to sum the steps
 4. Add "Get Contents of URL" action:
-   - URL: `http://your-server:3001/webhook?key=your-secret-key`
+   - URL: `http://your-server:3001/webhook`
    - Method: POST
+   - Headers: `Authorization: Bearer your-secret-key`
    - Request Body: JSON
    - Content: `{"user": "alice", "steps": [sum of steps]}`
 
@@ -176,81 +194,36 @@ CREATE TABLE step_entries (
 );
 ```
 
+### Discord Links Table
+
+```sql
+CREATE TABLE discord_links (
+  discord_id TEXT PRIMARY KEY,
+  apple_device_name TEXT NOT NULL UNIQUE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (apple_device_name) REFERENCES users (id)
+);
+```
+
 ## 🛠️ Development
 
 ### Project Structure
 
 ```
 src/
-├── bot.ts              # Main Discord bot class
-├── commands/           # Slash command handlers
-│   ├── log.ts         # /log command
-│   └── leaderboard.ts # /leaderboard command
+├── bot.ts              # Main Discord bot
+├── commands/           # Slash commands
+│   ├── log.ts         # Step logging command
+│   ├── leaderboard.ts # Leaderboard display
+│   └── link.ts        # Account linking
 ├── database/          # Database operations
-│   └── index.ts       # SQLite database class
-├── types/             # TypeScript type definitions
-│   └── index.ts       # Shared types
-├── webhook/           # Webhook server
-│   └── server.ts      # HTTP server for Apple Health
-└── index.ts           # Main entry point
+│   └── index.ts       # SQLite database wrapper
+├── webhook/           # Apple device integration
+│   └── server.ts      # HTTP server for Apple device
+└── types/             # TypeScript type definitions
+    └── index.ts       # Shared types
 ```
 
 ### Available Scripts
 
-- `bun run dev` - Start in development mode with hot reload
-- `bun run start` - Start in production mode
-- `bun run build` - Build for production
-- `bun run test` - Run tests
-
-## 🔒 Security
-
-- Only authorized Discord users can submit steps
-- Webhook endpoint requires authentication
-- Input validation for all step entries
-- Reasonable limits on step counts (0-1,000,000)
-
-## 🚀 Deployment
-
-### Render
-
-1. Connect your GitHub repository
-2. Set environment variables
-3. Build command: `bun run build`
-4. Start command: `bun run start`
-
-### Railway
-
-1. Connect your GitHub repository
-2. Set environment variables
-3. Deploy automatically
-
-### Vercel
-
-1. Connect your GitHub repository
-2. Set environment variables
-3. Deploy with serverless functions
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
-
-## 🆘 Support
-
-If you encounter any issues:
-
-1. Check the logs for error messages
-2. Verify your environment variables
-3. Ensure your Discord bot has proper permissions
-4. Open an issue on GitHub
-
----
-
-**Happy stepping! 🏃‍♂️💨**
+- `bun run dev`

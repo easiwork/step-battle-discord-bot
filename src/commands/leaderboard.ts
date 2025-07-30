@@ -27,33 +27,55 @@ export async function execute(
     // Sort users by steps (highest first)
     const sortedUsers = users.sort((a, b) => b.steps - a.steps);
 
-    // Create leaderboard display without revealing totals
-    const leaderboardEntries = sortedUsers.map((user, index) => {
-      const position = index + 1;
-      const isAhead = position === 1;
+    // Create leaderboard display with Discord names when available
+    const leaderboardEntries = await Promise.all(
+      sortedUsers.map(async (user, index) => {
+        const position = index + 1;
+        const isAhead = position === 1;
 
-      let emoji = "🥉";
-      if (position === 1) emoji = "🥇";
-      else if (position === 2) emoji = "🥈";
+        let emoji = "🥉";
+        if (position === 1) emoji = "🥇";
+        else if (position === 2) emoji = "🥈";
 
-      return `${emoji} **${user.name}** ${
-        isAhead ? "is currently ahead!" : "keep pushing!"
-      }`;
-    });
+        // Try to get Discord username for this Apple device name
+        const discordId = await db.getDiscordUsernameForAppleHealthName(user.name);
+        let displayName = user.name; // Default to Apple device name
+
+        if (discordId) {
+          try {
+            // Try to fetch the Discord user
+            const discordUser = await interaction.client.users.fetch(discordId);
+            displayName = discordUser.username;
+          } catch (error) {
+            // If we can't fetch the Discord user, fall back to Apple device name
+            console.log(`Could not fetch Discord user ${discordId} for ${user.name}`);
+          }
+        }
+
+        return `${emoji} **${displayName}** ${
+          isAhead ? "is currently ahead!" : "keep pushing!"
+        }`;
+      })
+    );
+
+    // Get display name for the leader
+    const leaderDiscordId = await db.getDiscordUsernameForAppleHealthName(sortedUsers[0].name);
+    let leaderDisplayName = sortedUsers[0].name;
+    
+    if (leaderDiscordId) {
+      try {
+        const discordUser = await interaction.client.users.fetch(leaderDiscordId);
+        leaderDisplayName = discordUser.username;
+      } catch (error) {
+        console.log(`Could not fetch Discord user ${leaderDiscordId} for ${sortedUsers[0].name}`);
+      }
+    }
 
     const embed = new EmbedBuilder()
       .setColor("#ffd700")
-      .setTitle("🏃‍♂️ Step Battle Leaderboard")
+      .setTitle("🏃‍♂️ Biggest Steppers")
       .setDescription(leaderboardEntries.join("\n"))
-      .addFields({
-        name: "📈 Battle Status",
-        value:
-          sortedUsers.length === 1
-            ? `${sortedUsers[0].name} is the only participant so far!`
-            : `${sortedUsers[0].name} is leading the pack!`,
-      })
-      .setTimestamp()
-      .setFooter({ text: "Step Battle Bot - No step totals revealed!" });
+      .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
   } catch (error) {

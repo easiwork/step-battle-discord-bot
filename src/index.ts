@@ -7,16 +7,8 @@ const config = {
   token: process.env.DISCORD_TOKEN || "",
   clientId: process.env.DISCORD_CLIENT_ID || "",
   webhookSecret: process.env.WEBHOOK_SECRET || "your-secret-key-here",
-  authorizedUsers: (process.env.AUTHORIZED_USERS || "")
-    .split(",")
-    .filter(Boolean),
   databasePath: process.env.DATABASE_PATH || "./step-battle.db",
   webhookPort: parseInt(process.env.WEBHOOK_PORT || "3001"),
-  // Map Apple Health user names to Discord user IDs
-  userMapping: {
-    alice: process.env.ALICE_DISCORD_ID || "",
-    bob: process.env.BOB_DISCORD_ID || "",
-  },
 };
 
 async function main() {
@@ -33,18 +25,13 @@ async function main() {
     process.exit(1);
   }
 
-  if (config.authorizedUsers.length === 0) {
-    console.error("❌ AUTHORIZED_USERS environment variable is required");
-    process.exit(1);
-  }
-
   // Initialize database
   const db = new StepBattleDatabase(config.databasePath);
   await db.initialize();
   console.log("✅ Database initialized");
 
   // Initialize bot
-  const bot = new StepBattleBot(config.token, db, config.authorizedUsers);
+  const bot = new StepBattleBot(config.token, db);
 
   // Register commands
   await bot.registerCommands(config.clientId, config.token);
@@ -58,8 +45,7 @@ async function main() {
   const webhookServer = new WebhookServer(
     config.webhookPort,
     db,
-    config.webhookSecret,
-    config.userMapping
+    config.webhookSecret
   );
   console.log("✅ Webhook server started");
 
@@ -85,7 +71,7 @@ async function main() {
   console.log("🎉 Step Battle Bot is ready!");
   console.log(`📊 Webhook URL: http://localhost:${config.webhookPort}/webhook`);
   console.log(
-    "💡 Use /log to submit steps and /leaderboard to view the battle status"
+    "💡 Use /leaderboard to view the battle status and /link to connect your account"
   );
 }
 

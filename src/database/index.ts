@@ -35,6 +35,16 @@ export class StepBattleDatabase {
       )
     `);
 
+    // Create discord_links table
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS discord_links (
+        discord_id TEXT PRIMARY KEY,
+        apple_device_name TEXT NOT NULL UNIQUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (apple_device_name) REFERENCES users (id)
+      )
+    `);
+
     this.db.run("PRAGMA foreign_keys = ON");
   }
 
@@ -130,6 +140,37 @@ export class StepBattleDatabase {
       steps: row.steps,
       entryType: row.entry_type,
     }));
+  }
+
+  async createDiscordLink(discordId: string, appleDeviceName: string): Promise<void> {
+    this.db.run(
+      "INSERT INTO discord_links (discord_id, apple_device_name) VALUES (?, ?)",
+      [discordId, appleDeviceName]
+    );
+  }
+
+  async getDiscordLink(discordId: string): Promise<string | null> {
+    const row = this.db
+      .query("SELECT apple_device_name FROM discord_links WHERE discord_id = ?")
+      .get(discordId) as any;
+
+    return row ? row.apple_device_name : null;
+  }
+
+  async getAppleHealthLink(appleDeviceName: string): Promise<string | null> {
+    const row = this.db
+      .query("SELECT discord_id FROM discord_links WHERE apple_device_name = ?")
+      .get(appleDeviceName) as any;
+
+    return row ? row.discord_id : null;
+  }
+
+  async getDiscordUsernameForAppleHealthName(appleDeviceName: string): Promise<string | null> {
+    const row = this.db
+      .query("SELECT discord_id FROM discord_links WHERE apple_device_name = ?")
+      .get(appleDeviceName) as any;
+
+    return row ? row.discord_id : null;
   }
 
   async close(): Promise<void> {
