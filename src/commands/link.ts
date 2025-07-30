@@ -98,29 +98,36 @@ export async function autocomplete(
     // Get all users from the database
     const users = await db.getAllUsers();
     
-    // Filter users based on the focused value (case-insensitive)
-    const filteredUsers = users
-      .filter(user => 
-        user.name.toLowerCase().includes(focusedValue.toLowerCase())
-      )
-      .slice(0, 25); // Discord limits to 25 choices
+    console.log(`Autocomplete: focusedValue="${focusedValue}", total users=${users.length}`);
     
-    // Create choices for autocomplete
-    const choices = filteredUsers.map(user => ({
-      name: user.name,
-      value: user.name
-    }));
+    let choices;
     
-    // If no users match, show all available users
-    if (choices.length === 0 && users.length > 0) {
-      const allChoices = users.slice(0, 25).map(user => ({
+    if (focusedValue && focusedValue.trim().length > 0) {
+      // Filter users based on the focused value (case-insensitive)
+      const filteredUsers = users
+        .filter(user => 
+          user.name.toLowerCase().includes(focusedValue.toLowerCase().trim())
+        )
+        .slice(0, 25); // Discord limits to 25 choices
+      
+      console.log(`Autocomplete: filtered users=${filteredUsers.length}`);
+      
+      choices = filteredUsers.map(user => ({
         name: user.name,
         value: user.name
       }));
-      await interaction.respond(allChoices);
     } else {
-      await interaction.respond(choices);
+      // If no input, show all users (up to 25)
+      const allUsers = users.slice(0, 25);
+      console.log(`Autocomplete: showing all users (${allUsers.length})`);
+      
+      choices = allUsers.map(user => ({
+        name: user.name,
+        value: user.name
+      }));
     }
+    
+    await interaction.respond(choices);
   } catch (error) {
     console.error("Error in autocomplete:", error);
     await interaction.respond([]);
