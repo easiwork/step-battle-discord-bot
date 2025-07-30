@@ -26,12 +26,14 @@ export async function execute(
 
     // Sort users by steps (highest first)
     const sortedUsers = users.sort((a, b) => b.steps - a.steps);
+    const leaderSteps = sortedUsers[0].steps;
 
     // Create leaderboard display with Discord names when available
     const leaderboardEntries = await Promise.all(
       sortedUsers.map(async (user, index) => {
         const position = index + 1;
-        const isAhead = position === 1;
+        const isLeader = position === 1;
+        const stepsBehind = leaderSteps - user.steps;
 
         let emoji = "🥉";
         if (position === 1) emoji = "🥇";
@@ -52,9 +54,46 @@ export async function execute(
           }
         }
 
-        return `${emoji} **${displayName}** ${
-          isAhead ? "is currently ahead!" : "keep pushing!"
-        }`;
+        // Create the entry text
+        let entryText = `${emoji} **${displayName}**`;
+        
+        if (isLeader) {
+          entryText += " 🏆 **LEADER**";
+        } else {
+          // Get the percentage change in gap
+          const gapChange = await db.getGapChangePercentage(user.id);
+          
+          if (gapChange !== null) {
+            if (gapChange > 0) {
+              // Catching up to the leader
+              if (gapChange >= 10) {
+                entryText += ` 🚀 **+${gapChange}% closer** - Amazing progress!`;
+              } else if (gapChange >= 5) {
+                entryText += ` 🔥 **+${gapChange}% closer** - You're gaining ground!`;
+              } else {
+                entryText += ` 💪 **+${gapChange}% closer** - Keep it up!`;
+              }
+            } else if (gapChange < 0) {
+              // Falling behind
+              const absChange = Math.abs(gapChange);
+              if (absChange >= 10) {
+                entryText += ` 📉 **${gapChange}% gap** - Time to step it up!`;
+              } else if (absChange >= 5) {
+                entryText += ` ⚠️ **${gapChange}% gap** - Don't fall behind!`;
+              } else {
+                entryText += ` 🚶‍♂️ **${gapChange}% gap** - Stay focused!`;
+              }
+            } else {
+              // No change
+              entryText += ` ➡️ **Same gap** - Maintain the pace!`;
+            }
+          } else {
+            // Not enough data yet
+            entryText += ` 📊 **New participant** - Welcome to the challenge!`;
+          }
+        }
+
+        return entryText;
       })
     );
 

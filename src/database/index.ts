@@ -26,8 +26,6 @@ export class StepBattleDatabase {
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
         date TEXT NOT NULL,
-        week1 INTEGER,
-        week2 INTEGER,
         steps INTEGER,
         entry_type TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -94,28 +92,23 @@ export class StepBattleDatabase {
   async addStepEntry(
     userId: string,
     entry: Omit<StepEntry, "entryType">,
-    entryType: "manual" | "webhook"
+    entryType: "webhook"
   ): Promise<void> {
     const entryId = `${userId}_${entry.date}_${Date.now()}`;
     let steps = 0;
 
-    if (entryType === "manual" && entry.week1 && entry.week2) {
-      // Calculate steps: ((week1 + week2) / 2) * 14
-      steps = Math.round(((entry.week1 + entry.week2) / 2) * 14);
-    } else if (entryType === "webhook" && entry.steps) {
+    if (entry.steps) {
       steps = entry.steps;
     }
 
     this.db.run(
       `INSERT INTO step_entries 
-       (id, user_id, date, week1, week2, steps, entry_type) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (id, user_id, date, steps, entry_type) 
+       VALUES (?, ?, ?, ?, ?)`,
       [
         entryId,
         userId,
         entry.date,
-        entry.week1 || null,
-        entry.week2 || null,
         steps,
         entryType,
       ]
@@ -135,8 +128,6 @@ export class StepBattleDatabase {
 
     return rows.map((row) => ({
       date: row.date,
-      week1: row.week1,
-      week2: row.week2,
       steps: row.steps,
       entryType: row.entry_type,
     }));
@@ -171,6 +162,45 @@ export class StepBattleDatabase {
       .get(appleDeviceName) as any;
 
     return row ? row.discord_id : null;
+  }
+
+  async getGapChangePercentage(userId: string): Promise<number | null> {
+    // Get the last two days of step entries for this user
+    const userEntries = this.db
+      .query("SELECT date, steps FROM step_entries WHERE user_id = ? ORDER BY date DESC LIMIT 2")
+      .all(userId) as any[];
+
+    if (userEntries.length < 2) {
+      return null; // Not enough data
+    }
+
+    // Get the last two days of step entries for the leader
+    const leaderEntries = this.db
+      .query(`
+        SELECT date, SUM(steps) as total_steps 
+        FROM step_entries 
+        WHERE date IN (?, ?) 
+        GROUP BY date 
+        ORDER BY date DESC 
+        LIMIT 2
+      `)
+      .all(userEntries[0].date, userEntries[1].date) as any[];
+
+    if (leaderEntries.length < 2) {
+      return null; // Not enough leader data
+    }
+
+    // Calculate gaps
+    const todayGap = leaderEntries[0].total_steps - userEntries[0].steps;
+    const yesterdayGap = leaderEntries[1].total_steps - userEntries[1].steps;
+
+    if (yesterdayGap === 0) {
+      return null; // Avoid division by zero
+    }
+
+    // Calculate percentage change (positive = catching up, negative = falling behind)
+    const percentageChange = ((yesterdayGap - todayGap) / yesterdayGap) * 100;
+    return Math.round(percentageChange * 10) / 10; // Round to 1 decimal place
   }
 
   async close(): Promise<void> {

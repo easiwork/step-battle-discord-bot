@@ -8,7 +8,7 @@ A complete Discord bot for tracking step battles between friends, built with **B
 
 ### ✅ Core Functionality
 
-- **Manual Step Entry**: `/log` command for submitting weekly averages
+- **Webhook Integration**: Automatic step submission via HTTP endpoint
 - **Leaderboard**: `/leaderboard` command showing who's ahead (no totals revealed)
 - **User Authorization**: Only pre-registered Discord users can submit steps
 - **Step Calculation**: Automatic calculation: `((week1 + week2) / 2) × 14`
@@ -82,18 +82,6 @@ bun run dev
 
 ## 📋 Commands
 
-### `/log <week1> <week2>`
-
-Submit your steps for the past two weeks.
-
-**Example:**
-
-```
-/log 8200 7900
-```
-
-Calculates: `((8200 + 7900) / 2) × 14 = 113,400 steps`
-
 ### `/leaderboard`
 
 View current battle status without revealing totals.
@@ -146,9 +134,8 @@ POST http://your-server:3001/webhook?key=your-secret-key
 - `id`: Unique entry ID
 - `user_id`: Foreign key to users
 - `date`: Entry date
-- `week1`, `week2`: Manual entry averages
 - `steps`: Direct step count (webhook)
-- `entry_type`: 'manual' or 'webhook'
+- `entry_type`: 'webhook'
 - `created_at`: Timestamp
 
 ## 🚀 Deployment
@@ -191,7 +178,7 @@ bun test
 Tests cover:
 
 - User creation and retrieval
-- Manual step entry calculation
+- Webhook step entry processing
 - Webhook step entry
 - Leaderboard sorting
 

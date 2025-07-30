@@ -83,22 +83,6 @@ Your bot needs the following permissions:
 
 ## 🎮 Commands
 
-### `/log <name> <week1> <week2>`
-
-Log your steps for the past two weeks.
-
-- `name`: Your Apple device name (used in leaderboard)
-- `week1`: Average steps for the past week
-- `week2`: Average steps for the week before that
-
-**Example:**
-
-```
-/log alice 8200 7900
-```
-
-The bot calculates: `((8200 + 7900) / 2) × 14 = 113,400 steps`
-
 ### `/leaderboard`
 
 View the current step battle status without revealing step totals.
@@ -112,7 +96,7 @@ View the current step battle status without revealing step totals.
 
 ### `/link <name>`
 
-Link your Discord account to an existing Apple device name. This allows you to use the `/log` command without specifying your name each time.
+Link your Discord account to an existing Apple device name. This allows you to use Discord commands without specifying your name each time.
 
 - `name`: The Apple device name to link to (must already exist in the database)
 
@@ -125,7 +109,7 @@ Link your Discord account to an existing Apple device name. This allows you to u
 **Note:** 
 - You can only link to one Apple device name
 - Apple device names can only be linked to one Discord account
-- The Apple device name must already have steps logged (via `/log` or webhook)
+- The Apple device name must already have steps logged (via webhook)
 
 ## 🔗 Apple Device Integration
 
@@ -185,8 +169,6 @@ CREATE TABLE step_entries (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   date TEXT NOT NULL,
-  week1 INTEGER,
-  week2 INTEGER,
   steps INTEGER,
   entry_type TEXT NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

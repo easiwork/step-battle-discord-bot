@@ -7,10 +7,8 @@ export interface User {
 
 export interface StepEntry {
   date: string;
-  week1?: number; // For manual entries
-  week2?: number; // For manual entries
   steps?: number; // For webhook entries
-  entryType: "manual" | "webhook";
+  entryType: "webhook";
 }
 
 export interface WebhookPayload {
@@ -44,10 +42,8 @@ export interface DatabaseSchema {
     id: string;
     user_id: string;
     date: string;
-    week1: number | null;
-    week2: number | null;
     steps: number | null;
-    entry_type: "manual" | "webhook";
+    entry_type: "webhook";
     created_at: string;
   };
 }

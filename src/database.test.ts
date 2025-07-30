@@ -26,31 +26,29 @@ describe("StepBattleDatabase", () => {
     expect(user?.steps).toBe(0);
   });
 
-  test("should add manual step entry and calculate correctly", async () => {
+  test("should add webhook step entry", async () => {
     const userId = "987654321";
     const userName = "TestUser2";
 
     await db.createUser(userId, userName);
 
-    // Add manual entry: week1=8000, week2=9000
-    // Expected: ((8000 + 9000) / 2) * 14 = 119,000 steps
+    // Add webhook entry: 50,000 steps
     await db.addStepEntry(
       userId,
       {
         date: "2025-01-01",
-        week1: 8000,
-        week2: 9000,
+        steps: 50000,
       },
-      "manual"
+      "webhook"
     );
 
     const user = await db.getUser(userId);
-    expect(user?.steps).toBe(119000);
+    expect(user?.steps).toBe(50000);
     expect(user?.history).toHaveLength(1);
-    expect(user?.history[0].entryType).toBe("manual");
+    expect(user?.history[0].entryType).toBe("webhook");
   });
 
-  test("should add webhook step entry", async () => {
+  test("should add another webhook step entry", async () => {
     const userId = "111222333";
     const userName = "TestUser3";
 
