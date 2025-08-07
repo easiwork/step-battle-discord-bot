@@ -43,6 +43,28 @@ export class StepBattleDatabase {
       )
     `);
 
+    // Create server_config table for channel configuration
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS server_config (
+        guild_id TEXT PRIMARY KEY,
+        channel_id TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create submission_windows table to track weekly submissions
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS submission_windows (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        window_date TEXT NOT NULL,
+        submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        UNIQUE(user_id, window_date)
+      )
+    `);
+
     this.db.run("PRAGMA foreign_keys = ON");
   }
 
@@ -201,6 +223,51 @@ export class StepBattleDatabase {
     // Calculate percentage change (positive = catching up, negative = falling behind)
     const percentageChange = ((yesterdayGap - todayGap) / yesterdayGap) * 100;
     return Math.round(percentageChange * 10) / 10; // Round to 1 decimal place
+  }
+
+  // Server configuration methods
+  async setServerChannel(guildId: string, channelId: string): Promise<void> {
+    this.db.run(
+      `INSERT OR REPLACE INTO server_config (guild_id, channel_id, updated_at) 
+       VALUES (?, ?, CURRENT_TIMESTAMP)`,
+      [guildId, channelId]
+    );
+  }
+
+  async getServerChannel(guildId: string): Promise<string | null> {
+    const row = this.db
+      .query("SELECT channel_id FROM server_config WHERE guild_id = ?")
+      .get(guildId) as any;
+
+    return row ? row.channel_id : null;
+  }
+
+  async getAllServerConfigs(): Promise<{ guildId: string; channelId: string }[]> {
+    const rows = this.db
+      .query("SELECT guild_id, channel_id FROM server_config")
+      .all() as any[];
+
+    return rows.map(row => ({
+      guildId: row.guild_id,
+      channelId: row.channel_id
+    }));
+  }
+
+  // Submission window methods
+  async hasSubmittedThisWindow(userId: string, windowDate: string): Promise<boolean> {
+    const row = this.db
+      .query("SELECT id FROM submission_windows WHERE user_id = ? AND window_date = ?")
+      .get(userId, windowDate) as any;
+
+    return !!row;
+  }
+
+  async recordSubmissionWindow(userId: string, windowDate: string): Promise<void> {
+    const submissionId = `${userId}_${windowDate}_${Date.now()}`;
+    this.db.run(
+      "INSERT INTO submission_windows (id, user_id, window_date) VALUES (?, ?, ?)",
+      [submissionId, userId, windowDate]
+    );
   }
 
   async close(): Promise<void> {

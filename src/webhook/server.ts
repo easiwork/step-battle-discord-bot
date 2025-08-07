@@ -1,6 +1,7 @@
 import { Server } from "bun";
 import { StepBattleDatabase } from "../database/index.js";
 import { WebhookPayload } from "../types/index.js";
+import { isSubmissionWindowOpen, getNextSubmissionWindow } from "../utils/submissionWindow.js";
 
 export class WebhookServer {
   private server: Server;
@@ -52,10 +53,33 @@ export class WebhookServer {
         return new Response("Invalid payload format", { status: 400 });
       }
 
-      // Process the step entry
-      await this.processStepEntry(payload);
+      // Check if submission window is open
+      const windowStatus = isSubmissionWindowOpen();
+      if (!windowStatus.isOpen) {
+        const nextWindow = getNextSubmissionWindow();
+        const nextWindowDate = new Date(nextWindow).toLocaleDateString();
+        const nextWindowTime = new Date(nextWindow).toLocaleTimeString();
+        
+        return new Response(
+          JSON.stringify({
+            error: "Submission window is closed",
+            message: `Step submissions are only allowed on odd-numbered Sundays from 10:00 PM to 11:55 PM. Next submission window: ${nextWindowDate} at ${nextWindowTime}`,
+            nextWindow: nextWindow
+          }),
+          { 
+            status: 403,
+            headers: { "Content-Type": "application/json" }
+          }
+        );
+      }
 
-      return new Response("OK", { status: 200 });
+      // Process the step entry
+      const result = await this.processStepEntry(payload, windowStatus.windowDate!);
+
+      return new Response(JSON.stringify(result), { 
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
     } catch (error) {
       console.error("Webhook error:", error);
       return new Response("Internal server error", { status: 500 });
@@ -80,28 +104,43 @@ export class WebhookServer {
     );
   }
 
-  private async processStepEntry(payload: WebhookPayload): Promise<void> {
+  private async processStepEntry(payload: WebhookPayload, windowDate: string): Promise<{ success: boolean; message: string }> {
     // Use Apple device name as the user ID
     const appleDeviceName = payload.user;
 
+    // Check if user has already submitted this window
+    const hasSubmitted = await this.db.hasSubmittedThisWindow(appleDeviceName, windowDate);
+    if (hasSubmitted) {
+      return {
+        success: false,
+        message: `You have already submitted steps for this week (${windowDate}). Only one submission is allowed per week.`
+      };
+    }
+
     // Ensure user exists in database
     await this.db.createUser(appleDeviceName, appleDeviceName);
+
+    // Record the submission window
+    await this.db.recordSubmissionWindow(appleDeviceName, windowDate);
 
     // Add step entry
     await this.db.addStepEntry(
       appleDeviceName,
       {
-        date: new Date().toISOString().split("T")[0],
+        date: windowDate,
         steps: payload.steps,
       },
       "webhook"
     );
 
     console.log(
-      `✅ Webhook: Added ${payload.steps.toLocaleString()} steps for ${
-        appleDeviceName
-      }`
+      `✅ Webhook: Added ${payload.steps.toLocaleString()} steps for ${appleDeviceName} (window: ${windowDate})`
     );
+
+    return {
+      success: true,
+      message: `Successfully submitted ${payload.steps.toLocaleString()} steps for this week.`
+    };
   }
 
   stop(): void {

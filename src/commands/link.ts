@@ -5,6 +5,7 @@ import {
   AutocompleteInteraction,
 } from "discord.js";
 import { StepBattleDatabase } from "../database/index.js";
+import { validateChannel, getChannelErrorMessage, getSetupMessage } from "../utils/channelValidation.js";
 
 export const data = new SlashCommandBuilder()
   .setName("link")
@@ -21,6 +22,25 @@ export async function execute(
   interaction: ChatInputCommandInteraction,
   db: StepBattleDatabase
 ): Promise<void> {
+  // Validate channel access
+  const channelValidation = await validateChannel(interaction, db);
+  if (!channelValidation.isValid) {
+    await interaction.reply({
+      content: getChannelErrorMessage(channelValidation.configuredChannelId!),
+      ephemeral: true,
+    });
+    return;
+  }
+
+  // Show setup message if no channel is configured
+  if (channelValidation.needsSetup) {
+    await interaction.reply({
+      content: getSetupMessage(),
+      ephemeral: true,
+    });
+    return;
+  }
+
   const userId = interaction.user.id;
   const appleDeviceName = interaction.options.getString("name", true);
 

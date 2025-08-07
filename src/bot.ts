@@ -11,12 +11,12 @@ import {
 import { StepBattleDatabase } from "./database/index.js";
 import * as leaderboardCommand from "./commands/leaderboard.js";
 import * as linkCommand from "./commands/link.js";
+import * as setchannelCommand from "./commands/setchannel.js";
 
 export class StepBattleBot {
   private client: Client;
   private db: StepBattleDatabase;
   private commands: Collection<string, any>;
-  private channelId: string | null = null;
   private scheduler: NodeJS.Timeout | null = null;
 
   constructor(
@@ -39,9 +39,10 @@ export class StepBattleBot {
   }
 
   private setupCommands(): void {
-    // Register commands (removed log command)
+    // Register commands
     this.commands.set(leaderboardCommand.data.name, leaderboardCommand);
     this.commands.set(linkCommand.data.name, linkCommand);
+    this.commands.set(setchannelCommand.data.name, setchannelCommand);
   }
 
   private setupEventHandlers(): void {
@@ -76,13 +77,7 @@ export class StepBattleBot {
       }
 
       try {
-        // All commands now use the same signature without authorizedUsers
         await command.execute(interaction, this.db);
-
-        // Store channel ID for scheduled posts
-        if (!this.channelId) {
-          this.channelId = interaction.channelId;
-        }
       } catch (error) {
         console.error(`Error executing ${interaction.commandName}:`, error);
 
@@ -110,138 +105,159 @@ export class StepBattleBot {
 
   private checkScheduledTasks(): void {
     const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
     const hour = now.getHours();
     const minute = now.getMinutes();
 
-    // Daily at 12 AM (00:00) - Post leaderboard
-    if (hour === 0 && minute === 0) {
+    // Every two weeks on Sunday at 11:59 PM - Post leaderboard
+    // This will post on the 1st, 3rd, 5th, etc. Sunday of each month
+    const weekOfMonth = Math.ceil(now.getDate() / 7);
+    const isOddWeek = weekOfMonth % 2 === 1;
+    
+    if (dayOfWeek === 0 && hour === 23 && minute === 59 && isOddWeek) {
       this.postLeaderboard();
     }
   }
 
   private async postLeaderboard(): Promise<void> {
-    if (!this.channelId) {
-      console.log("⚠️ No channel ID stored, skipping leaderboard post");
-      return;
-    }
-
     try {
-      const channel = await this.client.channels.fetch(this.channelId) as TextChannel;
-      if (!channel) {
-        console.log("⚠️ Could not find channel for leaderboard post");
+      // Get all server configurations
+      const serverConfigs = await this.db.getAllServerConfigs();
+      
+      if (serverConfigs.length === 0) {
+        console.log("⚠️ No servers configured, skipping bi-weekly leaderboard post");
         return;
       }
 
       const users = await this.db.getAllUsers();
 
       if (users.length === 0) {
-        const embed = new EmbedBuilder()
-          .setColor("#ffd700")
-          .setTitle("🏃‍♂️ Daily Step Battle Results")
-          .setDescription("📊 No participants have logged steps today.")
-          .setTimestamp()
-          .setFooter({ text: "Step Battle Bot - Daily Results" });
+        // Post "no participants" message to all configured channels
+        for (const config of serverConfigs) {
+          try {
+            const channel = await this.client.channels.fetch(config.channelId) as TextChannel;
+            if (channel) {
+              const embed = new EmbedBuilder()
+                .setColor("#ffd700")
+                .setTitle("🏃‍♂️ Bi-Weekly Step Battle Results")
+                .setDescription("📊 No participants have logged steps yet.")
+                .setTimestamp()
+                .setFooter({ text: "Step Battle Bot - Bi-Weekly Results" });
 
-        await channel.send({ embeds: [embed] });
+              await channel.send({ embeds: [embed] });
+              console.log(`✅ Posted "no participants" message to guild ${config.guildId}`);
+            }
+          } catch (error) {
+            console.error(`❌ Error posting to channel ${config.channelId}:`, error);
+          }
+        }
         return;
       }
 
-      // Sort users by steps (highest first)
-      const sortedUsers = users.sort((a, b) => b.steps - a.steps);
-      const leaderSteps = sortedUsers[0].steps;
-
-      // Create leaderboard display with Discord names when available
-      const leaderboardEntries = await Promise.all(
-        sortedUsers.map(async (user, index) => {
-          const position = index + 1;
-          const isLeader = position === 1;
-          const stepsBehind = leaderSteps - user.steps;
-
-          let emoji = "🥉";
-          if (position === 1) emoji = "🥇";
-          else if (position === 2) emoji = "🥈";
-
-          // Try to get Discord username for this Apple device name
-          const discordId = await this.db.getDiscordUsernameForAppleHealthName(user.name);
-          let displayName = user.name; // Default to Apple device name
-
-          if (discordId) {
-            try {
-              // Try to fetch the Discord user
-              const discordUser = await this.client.users.fetch(discordId);
-              displayName = discordUser.username;
-            } catch (error) {
-              // If we can't fetch the Discord user, fall back to Apple device name
-              console.log(`Could not fetch Discord user ${discordId} for ${user.name}`);
-            }
-          }
-
-          // Create the entry text
-          let entryText = `${emoji} **${displayName}**`;
-          
-          if (isLeader) {
-            entryText += " 🏆 **LEADER**";
-          } else {
-            // Get the percentage change in gap
-            const gapChange = await this.db.getGapChangePercentage(user.id);
-            
-            if (gapChange !== null) {
-              if (gapChange > 0) {
-                // Catching up to the leader
-                if (gapChange >= 10) {
-                  entryText += ` 🚀 **+${gapChange}% closer** - Amazing progress!`;
-                } else if (gapChange >= 5) {
-                  entryText += ` 🔥 **+${gapChange}% closer** - You're gaining ground!`;
-                } else {
-                  entryText += ` 💪 **+${gapChange}% closer** - Keep it up!`;
-                }
-              } else if (gapChange < 0) {
-                // Falling behind
-                const absChange = Math.abs(gapChange);
-                if (absChange >= 10) {
-                  entryText += ` 📉 **${gapChange}% gap** - Time to step it up!`;
-                } else if (absChange >= 5) {
-                  entryText += ` ⚠️ **${gapChange}% gap** - Don't fall behind!`;
-                } else {
-                  entryText += ` 🚶‍♂️ **${gapChange}% gap** - Stay focused!`;
-                }
-              } else {
-                // No change
-                entryText += ` ➡️ **Same gap** - Maintain the pace!`;
-              }
-            } else {
-              // Not enough data yet
-              entryText += ` 📊 **New participant** - Welcome to the challenge!`;
-            }
-          }
-
-          return entryText;
-        })
-      );
-
-      // Get display name for the leader
-      const leaderDiscordId = await this.db.getDiscordUsernameForAppleHealthName(sortedUsers[0].name);
-      let leaderDisplayName = sortedUsers[0].name;
+      // Post to all configured channels with guild-specific filtering
+      console.log(`📊 Posting bi-weekly leaderboard to ${serverConfigs.length} configured channels...`);
       
-      if (leaderDiscordId) {
+      for (const config of serverConfigs) {
         try {
-          const discordUser = await this.client.users.fetch(leaderDiscordId);
-          leaderDisplayName = discordUser.username;
+          const channel = await this.client.channels.fetch(config.channelId) as TextChannel;
+          if (!channel) {
+            console.error(`❌ Could not fetch channel ${config.channelId} for guild ${config.guildId}`);
+            continue;
+          }
+
+          const guild = channel.guild;
+          if (!guild) {
+            console.error(`❌ Could not get guild for channel ${config.channelId}`);
+            continue;
+          }
+
+          // Filter users to only include those who are linked and in this guild
+          const filteredUsers = [];
+          
+          for (const user of users) {
+            // Check if user has a Discord link
+            const discordId = await this.db.getDiscordUsernameForAppleHealthName(user.name);
+            if (!discordId) {
+              continue; // Skip users without Discord links
+            }
+
+            // Check if the Discord user is a member of this guild
+            try {
+              const guildMember = await guild.members.fetch(discordId);
+              if (guildMember) {
+                // User is linked and in this guild, add them to filtered list
+                filteredUsers.push({
+                  ...user,
+                  discordId: discordId,
+                  discordUsername: guildMember.user.username
+                });
+              }
+            } catch (error) {
+              // User is not in this guild, skip them
+              console.log(`User ${discordId} (${user.name}) is not a member of guild ${guild.id}`);
+              continue;
+            }
+          }
+
+          if (filteredUsers.length === 0) {
+            // No linked participants in this guild
+            const embed = new EmbedBuilder()
+              .setColor("#ffd700")
+              .setTitle("🏃‍♂️ Bi-Weekly Step Battle Results")
+              .setDescription("📊 No linked participants in this server have logged steps yet.\n\nUse `/link` to connect your Discord account to your Apple device name.")
+              .setTimestamp()
+              .setFooter({ text: "Step Battle Bot - Bi-Weekly Results" });
+
+            await channel.send({ embeds: [embed] });
+            console.log(`✅ Posted "no linked participants" message to guild ${config.guildId}`);
+            continue;
+          }
+
+          // Sort filtered users by steps (highest first)
+          const sortedUsers = filteredUsers.sort((a, b) => b.steps - a.steps);
+          const leaderSteps = sortedUsers[0].steps;
+
+          // Create leaderboard display for this guild
+          const leaderboardEntries = await Promise.all(
+            sortedUsers.map(async (user, index) => {
+              const position = index + 1;
+              const isLeader = position === 1;
+
+              let emoji = "🥉";
+              if (position === 1) emoji = "🥇";
+              else if (position === 2) emoji = "🥈";
+
+              // Use the Discord username we already fetched
+              const displayName = user.discordUsername;
+
+              // Create the entry text
+              let entryText = `${emoji} **${displayName}**`;
+              
+              if (isLeader) {
+                entryText += " 🏆 **LEADER**";
+              }
+
+              return entryText;
+            })
+          );
+
+          const embed = new EmbedBuilder()
+            .setColor("#ffd700")
+            .setTitle("🏃‍♂️ Bi-Weekly Step Battle Results")
+            .setDescription(leaderboardEntries.join("\n"))
+            .setTimestamp()
+            .setFooter({ text: `Step Battle Bot - ${filteredUsers.length} linked participants in this server` });
+
+          await channel.send({ embeds: [embed] });
+          console.log(`✅ Posted bi-weekly leaderboard to guild ${config.guildId} (${channel.name}) - ${filteredUsers.length} participants`);
         } catch (error) {
-          console.log(`Could not fetch Discord user ${leaderDiscordId} for ${sortedUsers[0].name}`);
+          console.error(`❌ Error posting to channel ${config.channelId} (guild ${config.guildId}):`, error);
         }
       }
-
-      const embed = new EmbedBuilder()
-        .setColor("#ffd700")
-        .setTitle("🏃‍♂️ Biggest Steppers")
-        .setDescription(leaderboardEntries.join("\n"))
-        .setTimestamp();
-
-      await channel.send({ embeds: [embed] });
-      console.log("✅ Posted daily leaderboard");
+      
+      console.log(`🎉 Bi-weekly leaderboard posted to ${serverConfigs.length} channels successfully!`);
     } catch (error) {
-      console.error("❌ Error posting leaderboard:", error);
+      console.error("❌ Error posting bi-weekly leaderboard:", error);
     }
   }
 
