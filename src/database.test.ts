@@ -33,14 +33,7 @@ describe("StepBattleDatabase", () => {
     await db.createUser(userId, userName);
 
     // Add webhook entry: 50,000 steps
-    await db.addStepEntry(
-      userId,
-      {
-        date: "2025-01-01",
-        steps: 50000,
-      },
-      "webhook"
-    );
+    await db.addStepEntry(userId, 50000, "webhook");
 
     const user = await db.getUser(userId);
     expect(user?.steps).toBe(50000);
@@ -55,14 +48,7 @@ describe("StepBattleDatabase", () => {
     await db.createUser(userId, userName);
 
     // Add webhook entry: 100,000 steps
-    await db.addStepEntry(
-      userId,
-      {
-        date: "2025-01-02",
-        steps: 100000,
-      },
-      "webhook"
-    );
+    await db.addStepEntry(userId, 100000, "webhook");
 
     const user = await db.getUser(userId);
     expect(user?.steps).toBe(100000);

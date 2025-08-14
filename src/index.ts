@@ -9,6 +9,14 @@ const config = {
   webhookSecret: process.env.WEBHOOK_SECRET || "your-secret-key-here",
   databasePath: process.env.DATABASE_PATH || "./step-battle.db",
   webhookPort: parseInt(process.env.PORT || process.env.WEBHOOK_PORT || "8080"),
+  // Leaderboard scheduling configuration
+  leaderboardSchedule: {
+    enabled: process.env.LEADERBOARD_SCHEDULE_ENABLED !== "false", // Default: true
+    dayOfWeek: parseInt(process.env.LEADERBOARD_DAY_OF_WEEK || "0"), // 0 = Sunday, default: Sunday
+    hour: parseInt(process.env.LEADERBOARD_HOUR || "23"), // Default: 11 PM
+    minute: parseInt(process.env.LEADERBOARD_MINUTE || "59"), // Default: 59
+    intervalWeeks: parseInt(process.env.LEADERBOARD_INTERVAL_WEEKS || "2"), // Default: every 2 weeks
+  },
 };
 
 async function main() {
@@ -31,7 +39,7 @@ async function main() {
   console.log("✅ Database initialized");
 
   // Initialize bot
-  const bot = new StepBattleBot(config.token, db);
+  const bot = new StepBattleBot(config.token, db, config.leaderboardSchedule);
 
   // Register commands
   await bot.registerCommands(config.clientId, config.token);

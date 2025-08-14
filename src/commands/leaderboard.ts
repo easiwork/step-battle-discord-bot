@@ -5,7 +5,11 @@ import {
   MessageFlags,
 } from "discord.js";
 import { StepBattleDatabase } from "../database/index.js";
-import { validateChannel, getChannelErrorMessage, getSetupMessage } from "../utils/channelValidation.js";
+import {
+  validateChannel,
+  getChannelErrorMessage,
+  getSetupMessage,
+} from "../utils/channelValidation.js";
 
 export const data = new SlashCommandBuilder()
   .setName("leaderboard")
@@ -56,10 +60,12 @@ export async function execute(
     }
 
     const filteredUsers = [];
-    
+
     for (const user of users) {
       // Check if user has a Discord link
-      const discordId = await db.getDiscordUsernameForAppleHealthName(user.name);
+      const discordId = await db.getDiscordUsernameForAppleHealthName(
+        user.name
+      );
       if (!discordId) {
         continue; // Skip users without Discord links
       }
@@ -72,19 +78,22 @@ export async function execute(
           filteredUsers.push({
             ...user,
             discordId: discordId,
-            discordUsername: guildMember.user.username
+            discordUsername: guildMember.user.username,
           });
         }
       } catch (error) {
         // User is not in this guild, skip them
-        console.log(`User ${discordId} (${user.name}) is not a member of guild ${guild.id}`);
+        console.log(
+          `User ${discordId} (${user.name}) is not a member of guild ${guild.id}`
+        );
         continue;
       }
     }
 
     if (filteredUsers.length === 0) {
       await interaction.reply({
-        content: "📊 No linked participants in this server have logged steps yet.\n\nUse `/link` to connect your Discord account to your Apple device name.",
+        content:
+          "📊 No linked participants in this server have logged steps yet.\n\nUse `/link` to connect your Discord account to your Apple device name.",
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -109,7 +118,7 @@ export async function execute(
 
         // Create the entry text
         let entryText = `${emoji} **${displayName}**`;
-        
+
         if (isLeader) {
           entryText += " 🏆 **LEADER**";
         }
@@ -122,8 +131,7 @@ export async function execute(
       .setColor("#ffd700")
       .setTitle("🏃‍♂️ Biggest Steppers")
       .setDescription(leaderboardEntries.join("\n"))
-      .setTimestamp()
-      .setFooter({ text: `Showing ${filteredUsers.length} linked participants in this server` });
+      .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
   } catch (error) {

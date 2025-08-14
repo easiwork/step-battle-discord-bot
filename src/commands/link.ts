@@ -6,7 +6,11 @@ import {
   MessageFlags,
 } from "discord.js";
 import { StepBattleDatabase } from "../database/index.js";
-import { validateChannel, getChannelErrorMessage, getSetupMessage } from "../utils/channelValidation.js";
+import {
+  validateChannel,
+  getChannelErrorMessage,
+  getSetupMessage,
+} from "../utils/channelValidation.js";
 
 export const data = new SlashCommandBuilder()
   .setName("link")
@@ -67,7 +71,9 @@ export async function execute(
     }
 
     // Check if this Apple device name is already linked to another Discord user
-    const existingAppleDeviceLink = await db.getAppleHealthLink(appleDeviceName);
+    const existingAppleDeviceLink = await db.getAppleHealthLink(
+      appleDeviceName
+    );
     if (existingAppleDeviceLink) {
       await interaction.reply({
         content: `❌ Apple device name "${appleDeviceName}" is already linked to another Discord user.`,
@@ -103,43 +109,60 @@ export async function autocomplete(
   db: StepBattleDatabase
 ): Promise<void> {
   const focusedValue = interaction.options.getFocused();
-  
+
   try {
     // Get all users from the database
     const users = await db.getAllUsers();
-    
-    console.log(`Autocomplete: focusedValue="${focusedValue}", total users=${users.length}`);
-    
+
+    console.log(
+      `Autocomplete: focusedValue="${focusedValue}", total users=${users.length}`
+    );
+
+    // Filter out users that are already linked to Discord accounts
+    const unlinkedUsers = [];
+    for (const user of users) {
+      const existingLink = await db.getAppleHealthLink(user.name);
+      if (!existingLink) {
+        unlinkedUsers.push(user);
+      }
+    }
+
+    console.log(`Autocomplete: unlinked users=${unlinkedUsers.length}`);
+
     let choices;
-    
+
     if (focusedValue && focusedValue.trim().length > 0) {
       // Filter users based on the focused value (case-insensitive)
-      const filteredUsers = users
-        .filter(user => 
+      const filteredUsers = unlinkedUsers
+        .filter((user) =>
           user.name.toLowerCase().includes(focusedValue.toLowerCase().trim())
         )
         .slice(0, 25); // Discord limits to 25 choices
-      
-      console.log(`Autocomplete: filtered users=${filteredUsers.length}`);
-      
-      choices = filteredUsers.map(user => ({
+
+      console.log(
+        `Autocomplete: filtered unlinked users=${filteredUsers.length}`
+      );
+
+      choices = filteredUsers.map((user) => ({
         name: user.name,
-        value: user.name
+        value: user.name,
       }));
     } else {
-      // If no input, show all users (up to 25)
-      const allUsers = users.slice(0, 25);
-      console.log(`Autocomplete: showing all users (${allUsers.length})`);
-      
-      choices = allUsers.map(user => ({
+      // If no input, show all unlinked users (up to 25)
+      const allUnlinkedUsers = unlinkedUsers.slice(0, 25);
+      console.log(
+        `Autocomplete: showing all unlinked users (${allUnlinkedUsers.length})`
+      );
+
+      choices = allUnlinkedUsers.map((user) => ({
         name: user.name,
-        value: user.name
+        value: user.name,
       }));
     }
-    
+
     await interaction.respond(choices);
   } catch (error) {
     console.error("Error in autocomplete:", error);
     await interaction.respond([]);
   }
-} 
+}

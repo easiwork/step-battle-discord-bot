@@ -25,7 +25,6 @@ export class StepBattleDatabase {
       CREATE TABLE IF NOT EXISTS step_entries (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
-        date TEXT NOT NULL,
         steps INTEGER,
         entry_type TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -50,18 +49,6 @@ export class StepBattleDatabase {
         channel_id TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create submission_windows table to track weekly submissions
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS submission_windows (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        window_date TEXT NOT NULL,
-        submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id),
-        UNIQUE(user_id, window_date)
       )
     `);
 
@@ -113,49 +100,44 @@ export class StepBattleDatabase {
 
   async addStepEntry(
     userId: string,
-    entry: Omit<StepEntry, "entryType">,
+    steps: number,
     entryType: "webhook"
   ): Promise<void> {
-    const entryId = `${userId}_${entry.date}_${Date.now()}`;
-    let steps = 0;
-
-    if (entry.steps) {
-      steps = entry.steps;
-    }
+    const entryId = `${userId}_${Date.now()}`;
+    const stepCount = steps || 0;
 
     this.db.run(
       `INSERT INTO step_entries 
-       (id, user_id, date, steps, entry_type) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        entryId,
-        userId,
-        entry.date,
-        steps,
-        entryType,
-      ]
+       (id, user_id, steps, entry_type) 
+       VALUES (?, ?, ?, ?)`,
+      [entryId, userId, stepCount, entryType]
     );
 
     // Update user's total steps
     this.db.run(
       "UPDATE users SET steps = steps + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [steps, userId]
+      [stepCount, userId]
     );
   }
 
   private async getUserHistory(userId: string): Promise<StepEntry[]> {
     const rows = this.db
-      .query("SELECT * FROM step_entries WHERE user_id = ? ORDER BY date DESC")
+      .query(
+        "SELECT * FROM step_entries WHERE user_id = ? ORDER BY created_at DESC"
+      )
       .all(userId) as any[];
 
     return rows.map((row) => ({
-      date: row.date,
+      timestamp: row.created_at, // Full timestamp from created_at
       steps: row.steps,
       entryType: row.entry_type,
     }));
   }
 
-  async createDiscordLink(discordId: string, appleDeviceName: string): Promise<void> {
+  async createDiscordLink(
+    discordId: string,
+    appleDeviceName: string
+  ): Promise<void> {
     this.db.run(
       "INSERT INTO discord_links (discord_id, apple_device_name) VALUES (?, ?)",
       [discordId, appleDeviceName]
@@ -178,7 +160,9 @@ export class StepBattleDatabase {
     return row ? row.discord_id : null;
   }
 
-  async getDiscordUsernameForAppleHealthName(appleDeviceName: string): Promise<string | null> {
+  async getDiscordUsernameForAppleHealthName(
+    appleDeviceName: string
+  ): Promise<string | null> {
     const row = this.db
       .query("SELECT discord_id FROM discord_links WHERE apple_device_name = ?")
       .get(appleDeviceName) as any;
@@ -189,7 +173,9 @@ export class StepBattleDatabase {
   async getGapChangePercentage(userId: string): Promise<number | null> {
     // Get the last two days of step entries for this user
     const userEntries = this.db
-      .query("SELECT date, steps FROM step_entries WHERE user_id = ? ORDER BY date DESC LIMIT 2")
+      .query(
+        "SELECT DATE(created_at) as date, steps FROM step_entries WHERE user_id = ? ORDER BY created_at DESC LIMIT 2"
+      )
       .all(userId) as any[];
 
     if (userEntries.length < 2) {
@@ -198,14 +184,16 @@ export class StepBattleDatabase {
 
     // Get the last two days of step entries for the leader
     const leaderEntries = this.db
-      .query(`
-        SELECT date, SUM(steps) as total_steps 
+      .query(
+        `
+        SELECT DATE(created_at) as date, SUM(steps) as total_steps 
         FROM step_entries 
-        WHERE date IN (?, ?) 
-        GROUP BY date 
+        WHERE DATE(created_at) IN (?, ?) 
+        GROUP BY DATE(created_at) 
         ORDER BY date DESC 
         LIMIT 2
-      `)
+      `
+      )
       .all(userEntries[0].date, userEntries[1].date) as any[];
 
     if (leaderEntries.length < 2) {
@@ -242,31 +230,36 @@ export class StepBattleDatabase {
     return row ? row.channel_id : null;
   }
 
-  async getAllServerConfigs(): Promise<{ guildId: string; channelId: string }[]> {
+  async getAllServerConfigs(): Promise<
+    { guildId: string; channelId: string }[]
+  > {
     const rows = this.db
       .query("SELECT guild_id, channel_id FROM server_config")
       .all() as any[];
 
-    return rows.map(row => ({
+    return rows.map((row) => ({
       guildId: row.guild_id,
-      channelId: row.channel_id
+      channelId: row.channel_id,
     }));
   }
 
-  // Submission window methods
-  async hasSubmittedThisWindow(userId: string, windowDate: string): Promise<boolean> {
+  async getLatestStepEntryForWindow(
+    userId: string,
+    windowDate: string
+  ): Promise<{ id: string; steps: number | null } | null> {
     const row = this.db
-      .query("SELECT id FROM submission_windows WHERE user_id = ? AND window_date = ?")
+      .query(
+        "SELECT id, steps FROM step_entries WHERE user_id = ? AND DATE(created_at) = ? ORDER BY created_at DESC LIMIT 1"
+      )
       .get(userId, windowDate) as any;
 
-    return !!row;
+    return row ? { id: row.id, steps: row.steps } : null;
   }
 
-  async recordSubmissionWindow(userId: string, windowDate: string): Promise<void> {
-    const submissionId = `${userId}_${windowDate}_${Date.now()}`;
+  async updateStepEntry(entryId: string, newSteps: number): Promise<void> {
     this.db.run(
-      "INSERT INTO submission_windows (id, user_id, window_date) VALUES (?, ?, ?)",
-      [submissionId, userId, windowDate]
+      "UPDATE step_entries SET steps = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [newSteps, entryId]
     );
   }
 

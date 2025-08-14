@@ -19,6 +19,7 @@ A complete Discord bot for tracking step battles between friends, built with **B
 - **Authentication**: Secure API key validation
 - **Payload Validation**: Input sanitization and limits
 - **User Mapping**: Maps Apple Health usernames to Discord IDs
+- **Deduplication**: Only latest submission before deadline counts
 
 ### ✅ Technical Features
 

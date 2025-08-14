@@ -6,7 +6,7 @@ export interface User {
 }
 
 export interface StepEntry {
-  date: string;
+  timestamp: string; // Full timestamp from created_at
   steps?: number; // For webhook entries
   entryType: "webhook";
 }
@@ -41,7 +41,6 @@ export interface DatabaseSchema {
   step_entries: {
     id: string;
     user_id: string;
-    date: string;
     steps: number | null;
     entry_type: "webhook";
     created_at: string;

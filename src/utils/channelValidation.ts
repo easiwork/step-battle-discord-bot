@@ -4,7 +4,11 @@ import { StepBattleDatabase } from "../database/index.js";
 export async function validateChannel(
   interaction: ChatInputCommandInteraction,
   db: StepBattleDatabase
-): Promise<{ isValid: boolean; configuredChannelId?: string; needsSetup?: boolean }> {
+): Promise<{
+  isValid: boolean;
+  configuredChannelId?: string;
+  needsSetup?: boolean;
+}> {
   // If no guild, allow the command (DM commands)
   if (!interaction.guildId) {
     return { isValid: true };
@@ -32,5 +36,5 @@ export function getChannelErrorMessage(configuredChannelId: string): string {
 }
 
 export function getSetupMessage(): string {
-  return `⚠️ **No channel configured!** A server administrator needs to set up a channel for the bot using \`/setchannel\`.\n\nOnce configured, I'll only respond to commands in that specific channel.`;
+  return `⚠️ **No channel configured!** A server administrator needs to set up a channel for the bot using \`/startstepping\`.\n\nOnce configured, I'll only respond to commands in that specific channel.`;
 }

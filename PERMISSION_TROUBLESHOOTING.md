@@ -1,6 +1,6 @@
 # 🔧 Discord Bot Permission Troubleshooting
 
-If you're getting permission errors when trying to use the `/setchannel` command, follow these steps to resolve the issue.
+If you're getting permission errors when trying to use the `/startstepping` command, follow these steps to resolve the issue.
 
 ## ❌ Common Error Messages
 
@@ -67,27 +67,31 @@ Try setting up the bot in a different channel to see if the issue is specific to
 
 1. Create a new test channel
 2. Ensure the bot has permissions in the new channel
-3. Try `/setchannel #test-channel`
+3. Try `/startstepping #test-channel`
 
 ## 🚨 Common Issues and Solutions
 
 ### **Issue: Bot has server permissions but not channel permissions**
+
 **Solution:** Check if there are channel-specific permission overrides that are denying the bot access.
 
 ### **Issue: Bot role is too low in hierarchy**
+
 **Solution:** Move the bot's role higher in the server's role list.
 
 ### **Issue: Bot was invited without proper permissions**
+
 **Solution:** Re-invite the bot using the OAuth2 URL generator with the correct permissions.
 
 ### **Issue: Channel has specific permission overrides**
+
 **Solution:** Check the channel's permission settings and ensure the bot's role isn't being denied access.
 
 ## ✅ Verification Steps
 
 After making changes, verify the setup:
 
-1. **Test the command**: Try `/setchannel #your-channel` again
+1. **Test the command**: Try `/startstepping #your-channel` again
 2. **Check bot response**: The bot should confirm the channel was set successfully
 3. **Test other commands**: Try `/leaderboard` in the configured channel
 4. **Check confirmation message**: The bot should send a message to the configured channel
