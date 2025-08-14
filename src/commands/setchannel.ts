@@ -3,6 +3,7 @@ import {
   ChatInputCommandInteraction,
   PermissionFlagsBits,
   ChannelType,
+  MessageFlags,
 } from "discord.js";
 import { StepBattleDatabase } from "../database/index.js";
 
@@ -20,7 +21,7 @@ export async function execute(
     if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
       await interaction.reply({
         content: "❌ You need Administrator permissions to use this command.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -31,7 +32,7 @@ export async function execute(
     if (!channel || channel.type !== ChannelType.GuildText) {
       await interaction.reply({
         content: "❌ This command can only be used in a text channel.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -41,7 +42,7 @@ export async function execute(
     if (!botMember) {
       await interaction.reply({
         content: "❌ Unable to verify bot permissions.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -50,7 +51,7 @@ export async function execute(
     if (!channelPermissions) {
       await interaction.reply({
         content: `❌ Unable to check permissions for <#${channel.id}>. Please ensure the bot has access to this channel.`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -84,7 +85,7 @@ export async function execute(
       
       await interaction.reply({
         content: `❌ **Missing Permissions in <#${channel.id}>**\n\nThe bot needs the following permissions:\n• ${missingPermissionsList}\n\n**To fix this:**\n1. Go to Server Settings → Roles\n2. Find the bot's role\n3. Go to the channel settings for <#${channel.id}>\n4. Ensure the bot's role has these permissions enabled\n\n**Or:**\n• Give the bot's role these permissions at the server level (they will apply to all channels)`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -94,7 +95,7 @@ export async function execute(
 
     await interaction.reply({
       content: `✅ Successfully set <#${channel.id}> as the bot's channel!\n\nFrom now on, I will only respond to commands and post leaderboards in this channel.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
 
     // Send a confirmation message to the configured channel
@@ -106,7 +107,7 @@ export async function execute(
       console.error("Error sending confirmation message:", sendError);
       await interaction.followUp({
         content: `⚠️ Channel configured successfully, but I couldn't send a confirmation message to <#${channel.id}>. This might indicate a permission issue.`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -114,7 +115,7 @@ export async function execute(
     console.error("Error setting channel:", error);
     await interaction.reply({
       content: "❌ An error occurred while setting the channel. Please try again.",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 }

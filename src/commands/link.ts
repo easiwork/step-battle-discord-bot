@@ -3,6 +3,7 @@ import {
   ChatInputCommandInteraction,
   EmbedBuilder,
   AutocompleteInteraction,
+  MessageFlags,
 } from "discord.js";
 import { StepBattleDatabase } from "../database/index.js";
 import { validateChannel, getChannelErrorMessage, getSetupMessage } from "../utils/channelValidation.js";
@@ -27,7 +28,7 @@ export async function execute(
   if (!channelValidation.isValid) {
     await interaction.reply({
       content: getChannelErrorMessage(channelValidation.configuredChannelId!),
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -36,7 +37,7 @@ export async function execute(
   if (channelValidation.needsSetup) {
     await interaction.reply({
       content: getSetupMessage(),
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -50,7 +51,7 @@ export async function execute(
     if (!existingUser) {
       await interaction.reply({
         content: `❌ Apple device name "${appleDeviceName}" not found. Please log steps first by using the Apple Shortcut.`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -60,7 +61,7 @@ export async function execute(
     if (existingLink) {
       await interaction.reply({
         content: `❌ You are already linked to Apple device name "${existingLink}". You cannot link to multiple names.`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -70,7 +71,7 @@ export async function execute(
     if (existingAppleDeviceLink) {
       await interaction.reply({
         content: `❌ Apple device name "${appleDeviceName}" is already linked to another Discord user.`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -92,7 +93,7 @@ export async function execute(
     await interaction.reply({
       content:
         "❌ An error occurred while linking your account. Please try again.",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 }

@@ -2,6 +2,7 @@ import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
   EmbedBuilder,
+  MessageFlags,
 } from "discord.js";
 import { StepBattleDatabase } from "../database/index.js";
 import { validateChannel, getChannelErrorMessage, getSetupMessage } from "../utils/channelValidation.js";
@@ -20,7 +21,7 @@ export async function execute(
     if (!channelValidation.isValid) {
       await interaction.reply({
         content: getChannelErrorMessage(channelValidation.configuredChannelId!),
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -29,7 +30,7 @@ export async function execute(
     if (channelValidation.needsSetup) {
       await interaction.reply({
         content: getSetupMessage(),
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -39,7 +40,7 @@ export async function execute(
     if (users.length === 0) {
       await interaction.reply({
         content: "📊 No participants have logged steps yet.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -49,7 +50,7 @@ export async function execute(
     if (!guild) {
       await interaction.reply({
         content: "❌ This command can only be used in a server.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -84,7 +85,7 @@ export async function execute(
     if (filteredUsers.length === 0) {
       await interaction.reply({
         content: "📊 No linked participants in this server have logged steps yet.\n\nUse `/link` to connect your Discord account to your Apple device name.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -130,7 +131,7 @@ export async function execute(
     await interaction.reply({
       content:
         "❌ An error occurred while fetching the leaderboard. Please try again.",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 }

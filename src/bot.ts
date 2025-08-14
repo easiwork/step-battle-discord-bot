@@ -7,6 +7,7 @@ import {
   Routes,
   TextChannel,
   EmbedBuilder,
+  MessageFlags,
 } from "discord.js";
 import { StepBattleDatabase } from "./database/index.js";
 import * as leaderboardCommand from "./commands/leaderboard.js";
@@ -85,10 +86,10 @@ export class StepBattleBot {
         if (interaction.replied || interaction.deferred) {
           await interaction.followUp({
             content: errorMessage,
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
         } else {
-          await interaction.reply({ content: errorMessage, ephemeral: true });
+          await interaction.reply({ content: errorMessage, flags: MessageFlags.Ephemeral });
         }
       }
     });
