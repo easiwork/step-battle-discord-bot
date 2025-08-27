@@ -21,6 +21,7 @@ export class StepBattleBot {
   private db: StepBattleDatabase;
   private commands: Collection<string, any>;
   private scheduler: Cron | null = null;
+  private reminderScheduler: Cron | null = null;
   private leaderboardSchedule: {
     enabled: boolean;
     dayOfWeek: number;
@@ -158,7 +159,7 @@ export class StepBattleBot {
       }:${this.leaderboardSchedule.minute.toString().padStart(2, "0")} UTC`
     );
 
-    // Create the cron job
+    // Create the leaderboard cron job
     this.scheduler = new Cron(
       cronExpression,
       {
@@ -170,11 +171,48 @@ export class StepBattleBot {
       }
     );
 
-    // Log next run time
-    const nextRun = this.scheduler.nextRun();
-    if (nextRun) {
+    // Create reminder cron job (1 hour before leaderboard)
+    const reminderMinute = this.leaderboardSchedule.minute;
+    const reminderHour = (this.leaderboardSchedule.hour - 1 + 24) % 24; // Handle hour wrap-around
+    const reminderCronExpression = `${reminderMinute} ${reminderHour} * * ${this.leaderboardSchedule.dayOfWeek}`;
+
+    console.log(
+      `⏰ Creating reminder schedule: ${reminderCronExpression} (UTC)`
+    );
+    console.log(
+      `📅 Reminder will post every ${
+        this.leaderboardSchedule.intervalWeeks
+      } week(s) on day ${
+        this.leaderboardSchedule.dayOfWeek
+      } at ${reminderHour}:${reminderMinute
+        .toString()
+        .padStart(2, "0")} UTC (1 hour before leaderboard)`
+    );
+
+    // Create the reminder cron job
+    this.reminderScheduler = new Cron(
+      reminderCronExpression,
+      {
+        timezone: "UTC",
+        name: "reminder-scheduler",
+      },
+      () => {
+        this.handleScheduledReminder();
+      }
+    );
+
+    // Log next run times
+    const nextLeaderboardRun = this.scheduler.nextRun();
+    const nextReminderRun = this.reminderScheduler.nextRun();
+
+    if (nextLeaderboardRun) {
       console.log(
-        `⏰ Next scheduled leaderboard post: ${nextRun.toISOString()} UTC`
+        `⏰ Next scheduled leaderboard post: ${nextLeaderboardRun.toISOString()} UTC`
+      );
+    }
+    if (nextReminderRun) {
+      console.log(
+        `⏰ Next scheduled reminder: ${nextReminderRun.toISOString()} UTC`
       );
     }
   }
@@ -200,6 +238,31 @@ export class StepBattleBot {
     } else {
       console.log(
         `⏰ Time matched but not the right week. Week ${weekOfMonth}, posting every ${this.leaderboardSchedule.intervalWeeks} weeks`
+      );
+    }
+  }
+
+  private handleScheduledReminder(): void {
+    // Check if it's the right interval (every X weeks) - same logic as leaderboard
+    const now = new Date();
+    const weekOfMonth = Math.ceil(now.getDate() / 7);
+    const shouldPost =
+      (weekOfMonth - 1) % this.leaderboardSchedule.intervalWeeks === 0;
+
+    console.log(
+      `⏰ Scheduled reminder trigger - Week ${weekOfMonth}, should post: ${shouldPost} (interval: ${this.leaderboardSchedule.intervalWeeks} weeks)`
+    );
+
+    if (shouldPost) {
+      console.log(
+        `⏰ Scheduled reminder triggered at ${now.toISOString()} UTC - Week ${weekOfMonth}, posting every ${
+          this.leaderboardSchedule.intervalWeeks
+        } week(s)`
+      );
+      this.postReminder();
+    } else {
+      console.log(
+        `⏰ Reminder time matched but not the right week. Week ${weekOfMonth}, posting every ${this.leaderboardSchedule.intervalWeeks} weeks`
       );
     }
   }
@@ -376,6 +439,63 @@ export class StepBattleBot {
     }
   }
 
+  public async postReminder(): Promise<void> {
+    console.log("⏰ Starting scheduled reminder posting process...");
+    try {
+      // Get all server configurations
+      const serverConfigs = await this.db.getAllServerConfigs();
+
+      if (serverConfigs.length === 0) {
+        console.log("⚠️ No servers configured, skipping reminder post");
+        return;
+      }
+
+      // Post reminder to all configured channels
+      console.log(
+        `⏰ Posting reminder to ${serverConfigs.length} configured channels...`
+      );
+
+      for (const config of serverConfigs) {
+        try {
+          const channel = (await this.client.channels.fetch(
+            config.channelId
+          )) as TextChannel;
+          if (!channel) {
+            console.error(
+              `❌ Could not fetch channel ${config.channelId} for guild ${config.guildId}`
+            );
+            continue;
+          }
+
+          const embed = new EmbedBuilder()
+            .setColor("#ff6b6b")
+            .setDescription(
+              "🚨 **yo leaderboard drops in 1 hr** 🚨\n\n" +
+                "last call to flex ur weak lil cardio numbers\n\n" +
+                "🏃‍♂️ dont let the ops outwalk u fr"
+            )
+            .setTimestamp();
+
+          await channel.send({ embeds: [embed] });
+          console.log(
+            `✅ Posted reminder to guild ${config.guildId} (${channel.name})`
+          );
+        } catch (error) {
+          console.error(
+            `❌ Error posting reminder to channel ${config.channelId} (guild ${config.guildId}):`,
+            error
+          );
+        }
+      }
+
+      console.log(
+        `🎉 Reminder posted to ${serverConfigs.length} channels successfully!`
+      );
+    } catch (error) {
+      console.error("❌ Error posting reminder:", error);
+    }
+  }
+
   async registerCommands(clientId: string, token: string): Promise<void> {
     const rest = new REST().setToken(token);
     const commands = Array.from(this.commands.values()).map((cmd) =>
@@ -401,6 +521,10 @@ export class StepBattleBot {
     if (this.scheduler) {
       this.scheduler.stop();
       this.scheduler = null;
+    }
+    if (this.reminderScheduler) {
+      this.reminderScheduler.stop();
+      this.reminderScheduler = null;
     }
     await this.client.destroy();
   }
