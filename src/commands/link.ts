@@ -93,7 +93,7 @@ export async function execute(
       )
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   } catch (error) {
     console.error("Error linking account:", error);
     await interaction.reply({

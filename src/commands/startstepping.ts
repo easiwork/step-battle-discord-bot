@@ -96,18 +96,23 @@ export async function execute(
       return;
     }
 
-    // Save the channel configuration
-    await db.setServerChannel(interaction.guildId!, channel.id);
+    // Calculate the next leaderboard time as the start date
+    const startDate = getNextLeaderboardTime().toISOString();
+
+    // Save the channel configuration with start date
+    await db.setServerChannel(interaction.guildId!, channel.id, startDate);
 
     await interaction.reply({
-      content: `✅ **Step Battle started in <#${channel.id}>!**\n\nI'll post leaderboards here and respond to commands. Use \`/leaderboard\` to see current standings!`,
+      content: `enabled in <#${channel.id}>`,
       flags: MessageFlags.Ephemeral,
     });
 
     // Send a confirmation message to the configured channel
     try {
       await channel.send({
-        content: `🎉 **Step Battle Bot is now active in this channel!**\n\nI'll respond to commands and post leaderboards here. Use \`/leaderboard\` to see the current standings!`,
+        content: `big steppers has entered the chat\n\nfirst leaderboard drops at <t:${
+          getNextLeaderboardTime().getTime() / 1000
+        }:F>.`,
       });
     } catch (sendError) {
       console.error("Error sending confirmation message:", sendError);
@@ -124,4 +129,29 @@ export async function execute(
       flags: MessageFlags.Ephemeral,
     });
   }
+}
+
+// Assuming default schedule: Sunday at 11:59 PM UTC, every 2 weeks
+function getNextLeaderboardTime(): Date {
+  // Create a date for the next occurrence of this day/time
+  const now = new Date();
+  const targetDay = 0; // Sunday
+  const targetHour = 23; // 11 PM
+  const targetMinute = 59;
+
+  // Find the next occurrence of this day/time
+  let nextDate = new Date(now);
+  nextDate.setHours(targetHour, targetMinute, 0, 0);
+
+  // If we've passed this time today, move to next week
+  if (nextDate <= now) {
+    nextDate.setDate(nextDate.getDate() + 7);
+  }
+
+  // Adjust to the correct day of week (Sunday = 0)
+  const currentDay = nextDate.getDay();
+  const daysToAdd = (targetDay - currentDay + 7) % 7;
+  nextDate.setDate(nextDate.getDate() + daysToAdd);
+
+  return nextDate;
 }

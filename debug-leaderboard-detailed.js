@@ -126,7 +126,7 @@ async function debugLeaderboardDetailed() {
 
     if (allUsers.length === 0) {
       console.log("Step 2: ❌ No users in database");
-      console.log("  Action: Submit steps via webhook or manual entry");
+      console.log("  Action: Submit steps via API or manual entry");
     } else {
       console.log("Step 2: ✅ Users found in database");
       console.log(`  Total users: ${allUsers.length}`);

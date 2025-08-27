@@ -5,7 +5,7 @@ A Discord bot for tracking step competitions between friends! Participants compe
 ## ✨ Features
 
 - **Automatic Leaderboards**: Posts every 2 weeks on Sunday at 11:59 PM
-- **Apple Health Integration**: Webhook endpoint for automatic step submission
+- **Apple Health Integration**: API endpoint for automatic step submission
 - **Account Linking**: Connect Discord accounts to Apple device names
 - **Channel Management**: Configure which channels the bot uses
 - **Deduplication**: Only the latest submission before deadline counts
@@ -51,19 +51,19 @@ A Discord bot for tracking step competitions between friends! Participants compe
 
 ## 🎮 Commands
 
-| Command            | Description                  | Who            |
-| ------------------ | ---------------------------- | -------------- |
-| `/startstepping`   | Start step battle in channel | Administrators |
-| `/leaderboard`     | View current rankings        | Everyone       |
-| `/link <name>`     | Link Discord to Apple device | Everyone       |
-| `/testleaderboard` | Test leaderboard posting     | Administrators |
+| Command          | Description                  | Who            |
+| ---------------- | ---------------------------- | -------------- |
+| `/startstepping` | Start step battle in channel | Administrators |
+| `/leaderboard`   | View current rankings        | Everyone       |
+| `/link <name>`   | Link Discord to Apple device | Everyone       |
+| `/submitsteps`   | Manually submit steps        | Everyone       |
 
 ## 🔗 Apple Health Setup
 
 1. Create Apple Shortcut
 2. Get Health Sample (steps, last 14 days)
 3. Sum the steps
-4. Send to webhook: `POST http://your-server:8080/webhook`
+4. Send to API: `POST http://your-server:8080/api`
 5. Headers: `Authorization: Bearer your-secret-key`
 6. Body: `{"user": "your-name", "steps": [sum]}`
 

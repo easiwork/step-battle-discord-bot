@@ -47,6 +47,7 @@ export class StepBattleDatabase {
       CREATE TABLE IF NOT EXISTS server_config (
         guild_id TEXT PRIMARY KEY,
         channel_id TEXT NOT NULL,
+        start_date TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -98,12 +99,75 @@ export class StepBattleDatabase {
     return users;
   }
 
+  async getAllUsersWithBiWeeklyTotals(guildId: string): Promise<User[]> {
+    const startDate = await this.getServerStartDate(guildId);
+    if (!startDate) {
+      // Fallback to current behavior if no start date
+      return this.getAllUsers();
+    }
+
+    const rows = this.db.query("SELECT * FROM users").all() as any[];
+
+    const users: User[] = [];
+    for (const row of rows) {
+      const totalSteps = await this.calculateBiWeeklyTotal(row.id, startDate);
+      const history = await this.getUserHistory(row.id);
+
+      users.push({
+        id: row.id,
+        name: row.name,
+        steps: totalSteps,
+        history,
+      });
+    }
+
+    // Sort by total steps descending
+    return users.sort((a, b) => b.steps - a.steps);
+  }
+
+  private async calculateBiWeeklyTotal(
+    userId: string,
+    startDate: string
+  ): Promise<number> {
+    const start = new Date(startDate);
+    const now = new Date();
+    let totalSteps = 0;
+
+    // Calculate bi-weekly periods that lead up to the start date
+    // The first period should be the 14 days before the start date
+    let currentPeriodStart = new Date(start);
+    currentPeriodStart.setDate(currentPeriodStart.getDate() - 13); // 14 days before start
+
+    while (currentPeriodStart <= now) {
+      const periodEnd = new Date(currentPeriodStart);
+      periodEnd.setDate(periodEnd.getDate() + 13); // 14 days total (0-13)
+
+      // Get the latest entry for this period
+      const entry = await this.getLatestStepEntryForPeriod(
+        userId,
+        currentPeriodStart.toISOString(),
+        periodEnd.toISOString()
+      );
+
+      if (entry && entry.steps) {
+        totalSteps += entry.steps;
+      }
+
+      // Move to next period
+      currentPeriodStart.setDate(currentPeriodStart.getDate() + 14);
+    }
+
+    return totalSteps;
+  }
+
   async addStepEntry(
     userId: string,
     steps: number,
-    entryType: "webhook"
+    entryType: "api" | "manual"
   ): Promise<void> {
-    const entryId = `${userId}_${Date.now()}`;
+    const entryId = `${userId}_${Date.now()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
     const stepCount = steps || 0;
 
     this.db.run(
@@ -214,11 +278,15 @@ export class StepBattleDatabase {
   }
 
   // Server configuration methods
-  async setServerChannel(guildId: string, channelId: string): Promise<void> {
+  async setServerChannel(
+    guildId: string,
+    channelId: string,
+    startDate?: string
+  ): Promise<void> {
     this.db.run(
-      `INSERT OR REPLACE INTO server_config (guild_id, channel_id, updated_at) 
-       VALUES (?, ?, CURRENT_TIMESTAMP)`,
-      [guildId, channelId]
+      `INSERT OR REPLACE INTO server_config (guild_id, channel_id, start_date, updated_at) 
+       VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
+      [guildId, channelId, startDate || null]
     );
   }
 
@@ -243,6 +311,14 @@ export class StepBattleDatabase {
     }));
   }
 
+  async getServerStartDate(guildId: string): Promise<string | null> {
+    const row = this.db
+      .query("SELECT start_date FROM server_config WHERE guild_id = ?")
+      .get(guildId) as any;
+
+    return row ? row.start_date : null;
+  }
+
   async getLatestStepEntryForWindow(
     userId: string,
     windowDate: string
@@ -252,6 +328,20 @@ export class StepBattleDatabase {
         "SELECT id, steps FROM step_entries WHERE user_id = ? AND DATE(created_at) = ? ORDER BY created_at DESC LIMIT 1"
       )
       .get(userId, windowDate) as any;
+
+    return row ? { id: row.id, steps: row.steps } : null;
+  }
+
+  async getLatestStepEntryForPeriod(
+    userId: string,
+    periodStart: string,
+    periodEnd: string
+  ): Promise<{ id: string; steps: number | null } | null> {
+    const row = this.db
+      .query(
+        "SELECT id, steps FROM step_entries WHERE user_id = ? AND created_at >= ? AND created_at <= ? ORDER BY created_at DESC LIMIT 1"
+      )
+      .get(userId, periodStart, periodEnd) as any;
 
     return row ? { id: row.id, steps: row.steps } : null;
   }

@@ -7,11 +7,11 @@ export interface User {
 
 export interface StepEntry {
   timestamp: string; // Full timestamp from created_at
-  steps?: number; // For webhook entries
-  entryType: "webhook";
+  steps?: number; // For API entries
+  entryType: "api" | "manual";
 }
 
-export interface WebhookPayload {
+export interface ApiPayload {
   user: string;
   steps: number;
 }
@@ -25,7 +25,7 @@ export interface LeaderboardEntry {
 export interface BotConfig {
   token: string;
   clientId: string;
-  webhookSecret: string;
+  apiSecret: string;
   authorizedUsers: string[];
   databasePath: string;
 }
@@ -42,7 +42,7 @@ export interface DatabaseSchema {
     id: string;
     user_id: string;
     steps: number | null;
-    entry_type: "webhook";
+    entry_type: "api" | "manual";
     created_at: string;
   };
 }

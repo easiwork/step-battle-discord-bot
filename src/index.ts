@@ -1,14 +1,14 @@
 import { StepBattleDatabase } from "./database/index.js";
 import { StepBattleBot } from "./bot.js";
-import { WebhookServer } from "./webhook/server.js";
+import { ApiServer } from "./api/server.js";
 
 // Configuration - Replace with your actual values
 const config = {
   token: process.env.DISCORD_TOKEN || "",
   clientId: process.env.DISCORD_CLIENT_ID || "",
-  webhookSecret: process.env.WEBHOOK_SECRET || "your-secret-key-here",
+  apiSecret: process.env.API_SECRET || "your-secret-key-here",
   databasePath: process.env.DATABASE_PATH || "./step-battle.db",
-  webhookPort: parseInt(process.env.PORT || process.env.WEBHOOK_PORT || "8080"),
+  apiPort: parseInt(process.env.PORT || process.env.API_PORT || "8080"),
   // Leaderboard scheduling configuration
   leaderboardSchedule: {
     enabled: process.env.LEADERBOARD_SCHEDULE_ENABLED !== "false", // Default: true
@@ -49,18 +49,14 @@ async function main() {
   await bot.start(config.token);
   console.log("✅ Bot started");
 
-  // Initialize webhook server
-  const webhookServer = new WebhookServer(
-    config.webhookPort,
-    db,
-    config.webhookSecret
-  );
-  console.log("✅ Webhook server started");
+  // Initialize API server
+  const apiServer = new ApiServer(config.apiPort, db, config.apiSecret);
+  console.log("✅ API server started");
 
   // Graceful shutdown
   process.on("SIGINT", async () => {
     console.log("\n🛑 Shutting down...");
-    webhookServer.stop();
+    apiServer.stop();
     await bot.stop();
     await db.close();
     console.log("✅ Shutdown complete");
@@ -69,15 +65,15 @@ async function main() {
 
   process.on("SIGTERM", async () => {
     console.log("\n🛑 Shutting down...");
-    webhookServer.stop();
+    apiServer.stop();
     await bot.stop();
     await db.close();
     console.log("✅ Shutdown complete");
     process.exit(0);
   });
 
-  console.log("🎉 Step Battle Bot is ready!");
-  console.log(`📊 Webhook URL: http://localhost:${config.webhookPort}/webhook`);
+  console.log("🎉 Big Steppers is ready!");
+  console.log(`📊 API URL: http://localhost:${config.apiPort}/api`);
   console.log(
     "💡 Use /leaderboard to view the battle status and /link to connect your account"
   );

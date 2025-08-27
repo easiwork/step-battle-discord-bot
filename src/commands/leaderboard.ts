@@ -39,7 +39,7 @@ export async function execute(
       return;
     }
 
-    const users = await db.getAllUsers();
+    const users = await db.getAllUsersWithBiWeeklyTotals(interaction.guildId!);
 
     if (users.length === 0) {
       await interaction.reply({
@@ -49,7 +49,7 @@ export async function execute(
       return;
     }
 
-    // Filter users to only include those who are linked and in this guild
+    // Filter users to include both linked users and manual Discord users
     const guild = interaction.guild;
     if (!guild) {
       await interaction.reply({
@@ -62,38 +62,59 @@ export async function execute(
     const filteredUsers = [];
 
     for (const user of users) {
-      // Check if user has a Discord link
-      const discordId = await db.getDiscordUsernameForAppleHealthName(
-        user.name
-      );
-      if (!discordId) {
-        continue; // Skip users without Discord links
+      let discordUsername = null;
+      let isGuildMember = false;
+
+      // Check if this is a manual Discord user (starts with "discord_")
+      if (user.id.startsWith("discord_")) {
+        const discordId = user.id.replace("discord_", "");
+        try {
+          const guildMember = await guild.members.fetch(discordId);
+          if (guildMember) {
+            discordUsername = guildMember.user.username;
+            isGuildMember = true;
+          }
+        } catch (error) {
+          // User is not in this guild, skip them
+          console.log(
+            `Discord user ${discordId} is not a member of guild ${guild.id}`
+          );
+          continue;
+        }
+      } else {
+        // Check if user has a Discord link (Apple Health user)
+        const discordId = await db.getDiscordUsernameForAppleHealthName(
+          user.name
+        );
+        if (discordId) {
+          try {
+            const guildMember = await guild.members.fetch(discordId);
+            if (guildMember) {
+              discordUsername = guildMember.user.username;
+              isGuildMember = true;
+            }
+          } catch (error) {
+            // User is not in this guild, skip them
+            console.log(
+              `Linked user ${discordId} (${user.name}) is not a member of guild ${guild.id}`
+            );
+            continue;
+          }
+        }
       }
 
-      // Check if the Discord user is a member of this guild
-      try {
-        const guildMember = await guild.members.fetch(discordId);
-        if (guildMember) {
-          // User is linked and in this guild, add them to filtered list
-          filteredUsers.push({
-            ...user,
-            discordId: discordId,
-            discordUsername: guildMember.user.username,
-          });
-        }
-      } catch (error) {
-        // User is not in this guild, skip them
-        console.log(
-          `User ${discordId} (${user.name}) is not a member of guild ${guild.id}`
-        );
-        continue;
+      if (isGuildMember && discordUsername) {
+        filteredUsers.push({
+          ...user,
+          discordUsername: discordUsername,
+        });
       }
     }
 
     if (filteredUsers.length === 0) {
       await interaction.reply({
         content:
-          "📊 No linked participants in this server have logged steps yet.\n\nUse `/link` to connect your Discord account to your Apple device name.",
+          "📊 No participants in this server have logged steps yet.\n\nUse `/link` to connect your Apple Health account or `/submitsteps` to manually submit steps.",
         flags: MessageFlags.Ephemeral,
       });
       return;

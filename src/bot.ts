@@ -13,6 +13,7 @@ import { StepBattleDatabase } from "./database/index.js";
 import * as leaderboardCommand from "./commands/leaderboard.js";
 import * as linkCommand from "./commands/link.js";
 import * as startsteppingCommand from "./commands/startstepping.js";
+import * as submitstepsCommand from "./commands/submitsteps.js";
 import { Cron } from "croner";
 
 export class StepBattleBot {
@@ -57,11 +58,12 @@ export class StepBattleBot {
     this.setupEventHandlers();
   }
 
+  // Register commands
   private setupCommands(): void {
-    // Register commands
-    this.commands.set(leaderboardCommand.data.name, leaderboardCommand);
-    this.commands.set(linkCommand.data.name, linkCommand);
+    // this.commands.set(leaderboardCommand.data.name, leaderboardCommand);
+    // this.commands.set(linkCommand.data.name, linkCommand);
     this.commands.set(startsteppingCommand.data.name, startsteppingCommand);
+    this.commands.set(submitstepsCommand.data.name, submitstepsCommand);
   }
 
   // Static method to get the bot instance
@@ -259,10 +261,13 @@ export class StepBattleBot {
             continue;
           }
 
-          // Filter users to only include those who are linked and in this guild
+          // Get bi-weekly totals for this guild and filter to linked users
+          const guildUsers = await this.db.getAllUsersWithBiWeeklyTotals(
+            config.guildId
+          );
           const filteredUsers = [];
 
-          for (const user of users) {
+          for (const user of guildUsers) {
             // Check if user has a Discord link
             const discordId =
               await this.db.getDiscordUsernameForAppleHealthName(user.name);
@@ -307,13 +312,11 @@ export class StepBattleBot {
             continue;
           }
 
-          // Sort filtered users by steps (highest first)
-          const sortedUsers = filteredUsers.sort((a, b) => b.steps - a.steps);
-          const leaderSteps = sortedUsers[0].steps;
+          const leaderSteps = filteredUsers[0]?.steps || 0;
 
           // Create leaderboard display for this guild
           const leaderboardEntries = await Promise.all(
-            sortedUsers.map(async (user, index) => {
+            filteredUsers.map(async (user, index) => {
               const position = index + 1;
               const isLeader = position === 1;
 
