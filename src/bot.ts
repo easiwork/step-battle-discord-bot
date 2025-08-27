@@ -60,10 +60,22 @@ export class StepBattleBot {
 
   // Register commands
   private setupCommands(): void {
-    // this.commands.set(leaderboardCommand.data.name, leaderboardCommand);
-    // this.commands.set(linkCommand.data.name, linkCommand);
+    const isDevelopment = process.env.NODE_ENV !== "production";
+
+    // Always register these commands
     this.commands.set(startsteppingCommand.data.name, startsteppingCommand);
     this.commands.set(submitstepsCommand.data.name, submitstepsCommand);
+
+    // Only register development commands in development mode
+    if (isDevelopment) {
+      this.commands.set(leaderboardCommand.data.name, leaderboardCommand);
+      this.commands.set(linkCommand.data.name, linkCommand);
+      console.log("🔧 Development mode: All commands registered");
+    } else {
+      console.log(
+        "🚀 Production mode: Only startstepping and submitsteps commands registered"
+      );
+    }
   }
 
   // Static method to get the bot instance
