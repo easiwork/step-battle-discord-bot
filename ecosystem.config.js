@@ -1,9 +1,8 @@
 module.exports = {
   apps: [
     {
-      name: "step-battle-bot",
-      script: "bun",
-      args: "run dist/index.js",
+      name: "big-steppers-bot",
+      script: "./dist/app",
       instances: 1,
       autorestart: true,
       watch: false,
