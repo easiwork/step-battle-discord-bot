@@ -6,7 +6,7 @@ echo "🚀 Starting Step Battle Discord Bot with PM2..."
 
 # Build the project first
 echo "📦 Building project..."
-bun run build
+bun run build:prod
 
 if [ $? -ne 0 ]; then
     echo "❌ Build failed! Please check for errors."
