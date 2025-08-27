@@ -96,6 +96,16 @@ export async function execute(
       return;
     }
 
+    // Check if this server already has a channel configured
+    const existingConfig = await db.getServerConfig(interaction.guildId!);
+    if (existingConfig) {
+      await interaction.reply({
+        content: `❌ big steppers already enabled in <#${existingConfig.channelId}>.\n\nTo change the channel, you'll need to manually update the database or contact an administrator.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     // Calculate the next leaderboard time as the start date
     const startDate = getNextLeaderboardTime().toISOString();
 

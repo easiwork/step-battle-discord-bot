@@ -311,6 +311,23 @@ export class StepBattleDatabase {
     }));
   }
 
+  async getServerConfig(
+    guildId: string
+  ): Promise<{ guildId: string; channelId: string } | null> {
+    const row = this.db
+      .query(
+        "SELECT guild_id, channel_id FROM server_config WHERE guild_id = ?"
+      )
+      .get(guildId) as any;
+
+    return row
+      ? {
+          guildId: row.guild_id,
+          channelId: row.channel_id,
+        }
+      : null;
+  }
+
   async getServerStartDate(guildId: string): Promise<string | null> {
     const row = this.db
       .query("SELECT start_date FROM server_config WHERE guild_id = ?")
