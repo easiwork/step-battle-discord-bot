@@ -15,6 +15,7 @@ import * as linkCommand from "./commands/link.js";
 import * as startsteppingCommand from "./commands/startstepping.js";
 import * as submitstepsCommand from "./commands/submitsteps.js";
 import { Cron } from "croner";
+import { generateLeaderboard } from "./utils/leaderboardUtils.js";
 
 export class StepBattleBot {
   private client: Client;
@@ -336,93 +337,24 @@ export class StepBattleBot {
             continue;
           }
 
-          // Get bi-weekly totals for this guild and filter to linked users
-          const guildUsers = await this.db.getAllUsersWithBiWeeklyTotals(
+          // Generate leaderboard using shared utility
+          const leaderboardResult = await generateLeaderboard(
+            guild,
+            this.db,
             config.guildId
           );
-          const filteredUsers = [];
 
-          for (const user of guildUsers) {
-            // Check if user has a Discord link
-            const discordId =
-              await this.db.getDiscordUsernameForAppleHealthName(user.name);
-            if (!discordId) {
-              continue; // Skip users without Discord links
-            }
-
-            // Check if the Discord user is a member of this guild
-            try {
-              const guildMember = await guild.members.fetch(discordId);
-              if (guildMember) {
-                // User is linked and in this guild, add them to filtered list
-                filteredUsers.push({
-                  ...user,
-                  discordId: discordId,
-                  discordUsername: guildMember.user.username,
-                });
-              }
-            } catch (error) {
-              // User is not in this guild, skip them
-              console.log(
-                `User ${discordId} (${user.name}) is not a member of guild ${guild.id}`
-              );
-              continue;
-            }
-          }
-
-          if (filteredUsers.length === 0) {
-            // No linked participants in this guild
-            const embed = new EmbedBuilder()
-              .setColor("#ffd700")
-              .setTitle("🏃‍♂️ Biggest Steppers")
-              .setDescription(
-                "📊 No linked participants in this server have logged steps yet.\n\nUse `/link` to connect your Discord account to your Apple device name."
-              )
-              .setTimestamp();
-
-            await channel.send({ embeds: [embed] });
+          await channel.send({ embeds: [leaderboardResult.embed] });
+          
+          if (leaderboardResult.participantCount === 0) {
             console.log(
-              `✅ Posted "no linked participants" message to guild ${config.guildId}`
+              `✅ Posted "no participants" message to guild ${config.guildId}`
             );
-            continue;
+          } else {
+            console.log(
+              `✅ Posted bi-weekly leaderboard to guild ${config.guildId} (${channel.name}) - ${leaderboardResult.participantCount} participants`
+            );
           }
-
-          const leaderSteps = filteredUsers[0]?.steps || 0;
-
-          // Create leaderboard display for this guild
-          const leaderboardEntries = await Promise.all(
-            filteredUsers.map(async (user, index) => {
-              const position = index + 1;
-              const isLeader = position === 1;
-
-              let emoji = "🥉";
-              if (position === 1) emoji = "🥇";
-              else if (position === 2) emoji = "🥈";
-
-              // Use the Discord username we already fetched
-              const displayName = user.discordUsername;
-
-              // Create the entry text
-              let entryText = `${emoji} **${displayName}**`;
-
-              if (isLeader) {
-                entryText += " 🏆 **LEADER**";
-              }
-
-              return entryText;
-            })
-          );
-
-          const embed = new EmbedBuilder()
-            .setColor("#ffd700")
-            .setTitle("🏃‍♂️ Biggest Steppers")
-            .setDescription(leaderboardEntries.join("\n"))
-            .setTimestamp();
-
-          await channel.send({ embeds: [embed] });
-          console.log(
-            `✅ Posted bi-weekly leaderboard to guild ${config.guildId} (${channel.name}) - ${filteredUsers.length} participants`
-          );
         } catch (error) {
           console.error(
             `❌ Error posting to channel ${config.channelId} (guild ${config.guildId}):`,
