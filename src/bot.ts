@@ -16,6 +16,7 @@ import * as startsteppingCommand from "./commands/startstepping.js";
 import * as submitstepsCommand from "./commands/submitsteps.js";
 import { Cron } from "croner";
 import { generateLeaderboard } from "./utils/leaderboardUtils.js";
+import { shouldPostThisWeek, getReminderSchedule } from "./utils/scheduleUtils.js";
 
 export class StepBattleBot {
   private client: Client;
@@ -220,50 +221,44 @@ export class StepBattleBot {
 
   private handleScheduledLeaderboard(): void {
     // Check if it's the right interval (every X weeks)
-    const now = new Date();
-    const weekOfMonth = Math.ceil(now.getDate() / 7);
-    const shouldPost =
-      (weekOfMonth - 1) % this.leaderboardSchedule.intervalWeeks === 0;
+    const shouldPost = shouldPostThisWeek(this.leaderboardSchedule);
 
     console.log(
-      `📅 Scheduled leaderboard trigger - Week ${weekOfMonth}, should post: ${shouldPost} (interval: ${this.leaderboardSchedule.intervalWeeks} weeks)`
+      `📅 Scheduled leaderboard trigger - should post: ${shouldPost} (interval: ${this.leaderboardSchedule.intervalWeeks} weeks)`
     );
 
     if (shouldPost) {
       console.log(
-        `📅 Scheduled leaderboard posting triggered at ${now.toISOString()} UTC - Week ${weekOfMonth}, posting every ${
+        `📅 Scheduled leaderboard posting triggered at ${new Date().toISOString()} UTC - posting every ${
           this.leaderboardSchedule.intervalWeeks
         } week(s)`
       );
       this.postLeaderboard();
     } else {
       console.log(
-        `⏰ Time matched but not the right week. Week ${weekOfMonth}, posting every ${this.leaderboardSchedule.intervalWeeks} weeks`
+        `⏰ Time matched but not the right week. posting every ${this.leaderboardSchedule.intervalWeeks} weeks`
       );
     }
   }
 
   private handleScheduledReminder(): void {
     // Check if it's the right interval (every X weeks) - same logic as leaderboard
-    const now = new Date();
-    const weekOfMonth = Math.ceil(now.getDate() / 7);
-    const shouldPost =
-      (weekOfMonth - 1) % this.leaderboardSchedule.intervalWeeks === 0;
+    const shouldPost = shouldPostThisWeek(this.leaderboardSchedule);
 
     console.log(
-      `⏰ Scheduled reminder trigger - Week ${weekOfMonth}, should post: ${shouldPost} (interval: ${this.leaderboardSchedule.intervalWeeks} weeks)`
+      `⏰ Scheduled reminder trigger - should post: ${shouldPost} (interval: ${this.leaderboardSchedule.intervalWeeks} weeks)`
     );
 
     if (shouldPost) {
       console.log(
-        `⏰ Scheduled reminder triggered at ${now.toISOString()} UTC - Week ${weekOfMonth}, posting every ${
+        `⏰ Scheduled reminder triggered at ${new Date().toISOString()} UTC - posting every ${
           this.leaderboardSchedule.intervalWeeks
         } week(s)`
       );
       this.postReminder();
     } else {
       console.log(
-        `⏰ Reminder time matched but not the right week. Week ${weekOfMonth}, posting every ${this.leaderboardSchedule.intervalWeeks} weeks`
+        `⏰ Reminder time matched but not the right week. posting every ${this.leaderboardSchedule.intervalWeeks} weeks`
       );
     }
   }

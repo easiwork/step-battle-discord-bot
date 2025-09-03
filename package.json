@@ -9,6 +9,7 @@
     "build": "bun build src/index.ts --outdir dist --target bun",
     "build:prod": "NODE_ENV=production bun build src/index.ts --outfile dist/app --compile",
     "test": "bun test",
+    "check-schedule": "bun run scripts/check-leaderboard-schedule.js",
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:stop": "pm2 stop big-steppers-bot",
     "pm2:restart": "pm2 restart big-steppers-bot",
